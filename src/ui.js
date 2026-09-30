@@ -4,7 +4,7 @@ var SF = SF || {};
   var VERSION = '__VERSION__';
   var $ = function (id) { return document.getElementById(id); };
   var state = { table: [], sheets: null, target: 'score', payloadText: '', guess: null, result: null,
-                pp5: null, manual: false, phase: null };
+                pp5: null, manual: false, phase: null, sheetIndex: 0 };
 
   function clear(node) { while (node.firstChild) { node.removeChild(node.firstChild); } }
   function mk(tag, text, cls) {
@@ -13,6 +13,22 @@ var SF = SF || {};
     if (cls) { e.className = cls; }
     return e;
   }
+  var SVG_NS = ['http:', '', 'www.w3.org', '2000', 'svg'].join('/');
+  /* ไอคอน Lucide จากสไปรต์ที่ฝังในหน้า (site/icons.svg) */
+  function icon(name, cls) {
+    var svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('class', 'icon' + (cls ? ' ' + cls : ''));
+    svg.setAttribute('aria-hidden', 'true');
+    var use = document.createElementNS(SVG_NS, 'use');
+    use.setAttribute('href', '#i-' + name);
+    svg.appendChild(use);
+    return svg;
+  }
+  function checked(name) {
+    var found = document.querySelector('input[name=' + name + ']:checked');
+    return found ? found.value : '';
+  }
+  function isStrict() { return checked('mode') === 'strict'; }
   function colName(i) {
     var s = '';
     for (var n = i + 1; n > 0; n = Math.floor((n - 1) / 26)) { s = String.fromCharCode(65 + ((n - 1) % 26)) + s; }
@@ -101,7 +117,7 @@ var SF = SF || {};
       var m = $('max_' + f.id);
       if (m && m.value !== '') { maxByField[f.id] = parseFloat(m.value); }
     });
-    /* เติมช่อง 4-5 ให้อัตโนมัติ → คอลัมน์ 4-5 ในไฟล์ถูกเมิน จะมีค่าแปลก ๆ หรือว่างก็ไม่กระทบการตรวจ */
+    /* เติมช่อง 4-5 ให้อัตโนมัติ จึงเมินคอลัมน์ 4-5 ในไฟล์ถูกเมิน จะมีค่าแปลก ๆ หรือว่างก็ไม่กระทบการตรวจ */
     if (state.target === 'reading' && $('fill45') && $('fill45').checked) {
       delete fieldCols.L4;
       delete fieldCols.L5;
@@ -114,8 +130,11 @@ var SF = SF || {};
 
   function line(kind, text, small) {
     var d = mk('div', undefined, 'line ' + kind);
-    d.appendChild(document.createTextNode((kind === 'ok' ? '✓ ' : kind === 'bad' ? '✗ ' : '⚠ ') + text));
-    if (small) { d.appendChild(mk('small', small)); }
+    d.appendChild(icon(kind === 'ok' ? 'circle-check' : kind === 'bad' ? 'circle-x' : 'triangle-alert'));
+    var body = mk('div');
+    body.appendChild(document.createTextNode(text));
+    if (small) { body.appendChild(mk('small', small)); }
+    d.appendChild(body);
     return d;
   }
 
@@ -156,7 +175,7 @@ var SF = SF || {};
         var fill45 = $('fill45') ? $('fill45').checked : false;
         var payload = SF.buildPayload(state.target, result, {
           subject: $('subject').value.trim(), section: $('section').value.trim(),
-          strict: $('strict').checked, version: VERSION, maxByField: cfg.maxByField,
+          strict: isStrict(), version: VERSION, maxByField: cfg.maxByField,
           presets: { fill45: fill45 }
         });
         state.payloadText = JSON.stringify(payload);
@@ -182,10 +201,15 @@ var SF = SF || {};
   function applyPp5() {
     var ex = SF.pp5Extract(state.pp5, state.sheets, state.target);
     var banner = $('pp5Banner');
-    if (!ex.ok) {
+    function setBanner(kind, text) {
+      clear(banner);
       banner.hidden = false;
-      banner.className = 'banner warn';
-      banner.textContent = 'พบไฟล์ ปพ.5 แต่อ่านหน้านี้ไม่ได้: ' + ex.message + ' — ลองติ๊ก "จับคู่คอลัมน์เอง"';
+      banner.className = 'banner' + (kind === 'warn' ? ' warn' : '');
+      banner.appendChild(icon(kind === 'warn' ? 'triangle-alert' : 'circle-check'));
+      banner.appendChild(mk('span', text));
+    }
+    if (!ex.ok) {
+      setBanner('warn', 'พบไฟล์ ปพ.5 แต่อ่านหน้านี้ไม่ได้: ' + ex.message + ' — ลองติ๊ก "จับคู่คอลัมน์เอง"');
       say('loadMessage', ex.message);
       state.manual = true;
       $('manualMap').checked = true;
@@ -193,11 +217,9 @@ var SF = SF || {};
       return;
     }
     say('loadMessage', '');
-    banner.hidden = false;
-    banner.className = 'banner';
-    banner.textContent = 'พบไฟล์ ปพ.5' + (state.pp5.subject ? ' · วิชา ' + state.pp5.subject : '') +
+    setBanner('ok', 'พบไฟล์ ปพ.5' + (state.pp5.subject ? ' · วิชา ' + state.pp5.subject : '') +
       (state.pp5.room ? ' · ห้อง ' + state.pp5.room : '') + ' · อ่านหน้า "' + SF.TARGETS[state.target].label +
-      '" ให้อัตโนมัติ ' + (ex.table.length - 1) + ' คน — ตรวจตารางด้านล่างแล้วกดคัดลอกได้เลย';
+      '" ให้อัตโนมัติ ' + (ex.table.length - 1) + ' คน — ตรวจตารางด้านล่างแล้วกดคัดลอกได้เลย');
     state.table = ex.table;
     state.guess = ex.guess;
     $('headerRow').value = 1;
@@ -224,9 +246,8 @@ var SF = SF || {};
 
   function showRaw(i) {
     $('phaseBox').hidden = true;
-    var sel = $('sheet');
+    state.sheetIndex = i;
     fillSheetSelect();
-    sel.value = String(i);
     loadTable(state.sheets[i].rows);
   }
 
@@ -239,14 +260,25 @@ var SF = SF || {};
   }
 
   function fillSheetSelect() {
-    var sel = $('sheet');
-    clear(sel);
+    var box = $('sheet');
+    clear(box);
     state.sheets.forEach(function (s, i) {
-      var o = mk('option', s.name);
-      o.value = String(i);
-      sel.appendChild(o);
+      var label = mk('label');
+      var r = mk('input');
+      r.type = 'radio';
+      r.name = 'sheetpick';
+      r.value = String(i);
+      r.checked = i === state.sheetIndex;
+      r.addEventListener('change', function () {
+        if (!r.checked) { return; }
+        state.sheetIndex = i;
+        loadTable(state.sheets[i].rows);
+      });
+      label.appendChild(r);
+      label.appendChild(mk('span', s.name));
+      box.appendChild(label);
     });
-    sel.hidden = state.sheets.length < 2;
+    box.hidden = state.sheets.length < 2;
   }
 
   $('paste').addEventListener('input', function () {
@@ -261,14 +293,15 @@ var SF = SF || {};
     loadTable(SF.parseDelimited($('paste').value));
   });
 
-  $('file').addEventListener('change', async function () {
-    var f = $('file').files[0];
+  async function handleFile(f) {
     if (!f) { return; }
+    say('fileName', f.name);
     try {
       say('loadMessage', '');
       if (/\.xlsx$/i.test(f.name)) {
         var r = await SF.readXlsx(await f.arrayBuffer());
         state.sheets = r.sheets;
+        state.sheetIndex = 0;
         state.pp5 = SF.detectPp5(state.sheets);
         state.phase = null;
         state.manual = false;
@@ -296,6 +329,18 @@ var SF = SF || {};
     } catch (e) {
       say('loadMessage', e.message);
     }
+  }
+
+  $('file').addEventListener('change', function () { handleFile($('file').files[0]); });
+  ['dragenter', 'dragover'].forEach(function (name) {
+    $('drop').addEventListener(name, function (ev) { ev.preventDefault(); $('drop').classList.add('over'); });
+  });
+  ['dragleave', 'drop'].forEach(function (name) {
+    $('drop').addEventListener(name, function (ev) { ev.preventDefault(); $('drop').classList.remove('over'); });
+  });
+  $('drop').addEventListener('drop', function (ev) {
+    var f = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
+    if (f) { handleFile(f); }
   });
 
   $('manualMap').addEventListener('change', function () {
@@ -310,13 +355,13 @@ var SF = SF || {};
     });
   });
 
-  $('sheet').addEventListener('change', function () {
-    loadTable(state.sheets[parseInt($('sheet').value, 10)].rows);
-  });
   $('headerRow').addEventListener('input', function () { renderPreview(); renderMapping(true); recompute(); });
-  ['codeCol', 'pad', 'subject', 'section', 'strict'].forEach(function (id) {
+  ['codeCol', 'pad', 'subject', 'section'].forEach(function (id) {
     $(id).addEventListener('input', recompute);
     $(id).addEventListener('change', recompute);
+  });
+  Array.prototype.forEach.call(document.getElementsByName('mode'), function (r) {
+    r.addEventListener('change', recompute);
   });
   Array.prototype.forEach.call(document.getElementsByName('target'), function (r) {
     r.addEventListener('change', function () {
@@ -339,7 +384,7 @@ var SF = SF || {};
       $('manualBox').open = true;
       $('manualcopy').value = text;
       $('manualcopy').select();
-      say('status', 'คัดลอกอัตโนมัติไม่ได้ — กดคัดลอกจากช่องด้านล่างเอง (Ctrl/⌘+C)');
+      say('status', 'คัดลอกอัตโนมัติไม่ได้ — กดคัดลอกจากช่องด้านล่างเอง (Ctrl/Cmd+C)');
     }
   }
 
@@ -352,7 +397,7 @@ var SF = SF || {};
     if (!state.result) { return; }
     copyText(SF.buildReport({
       version: VERSION, targetKey: state.target, result: state.result,
-      mode: $('strict').checked ? 'strict' : 'lenient', userAgent: navigator.userAgent
+      mode: isStrict() ? 'strict' : 'lenient', userAgent: navigator.userAgent
     }), 'คัดลอกรายงานปัญหาแล้ว (ไม่มีข้อมูลนักเรียน)');
   });
 

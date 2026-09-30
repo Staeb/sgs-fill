@@ -61,6 +61,7 @@ def build(out: Path | None = None) -> Path:
     css = (ROOT / "site" / "app.css").read_text(encoding="utf-8")
     page = (
         page.replace("__CSP__", html.escape(csp, quote=False))
+        .replace("<!--__ICONS__-->", (ROOT / "site" / "icons.svg").read_text(encoding="utf-8"))
         .replace("/*__CSS__*/", css)
         .replace("__BOOKMARKLET__", bookmarklet_href(render_script(ver)))
         .replace("__VERSION__", ver)
