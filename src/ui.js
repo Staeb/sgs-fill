@@ -59,6 +59,9 @@ var SF = SF || {};
       columnOptions(sel, state.guess.fieldCols[f.id]);
       sel.addEventListener('change', recompute);
       row.appendChild(sel);
+      var stats = mk('span', '', 'hint');
+      stats.id = 'stats_' + f.id;
+      row.appendChild(stats);
       if (target.kind === 'score') {
         var mx = mk('input');
         mx.type = 'number';
@@ -126,6 +129,16 @@ var SF = SF || {};
     $('copy').disabled = true;
     if (!state.table.length) { box.appendChild(line('warn', 'ยังไม่มีข้อมูล — วางจาก Excel หรือเลือกไฟล์')); return; }
     var cfg = config();
+    /* แสดงหน้าตาของคอลัมน์ที่จับคู่ไว้ข้างช่องเลือก — ครูเห็นทันทีถ้าเลือกคอลัมน์ผิด (เช่นคะแนนย่อย) */
+    SF.TARGETS[state.target].fields.forEach(function (f) {
+      var box = $('stats_' + f.id);
+      if (!box) { return; }
+      var col = cfg.fieldCols[f.id];
+      if (col === undefined) { box.textContent = ''; return; }
+      var s = SF.columnStats(state.table.slice(headerRow() + 1), col);
+      box.textContent = 'ตัวอย่าง ' + (s.sample.join(', ') || '(ว่าง)') +
+        (s.numbers ? ' · ต่ำสุด–สูงสุด ' + s.min + '–' + s.max : '');
+    });
     var result = SF.validate(state.table.slice(headerRow() + 1), cfg);
     state.result = result;
     result.errors.forEach(function (e) {

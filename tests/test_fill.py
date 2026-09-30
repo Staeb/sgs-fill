@@ -147,3 +147,40 @@ def test_reading_page_fills_five_fields_by_student_code_header():
     assert out["result"]["canFill"] is True
     assert out["values"]["10001"][10:15] == ["1", "2", "2", "2", "2"]
     assert out["values"]["10001"][15] == "", "ช่องผลการประเมินให้ SGS เติมเอง ห้ามแตะ"
+
+
+# ── Final review, Important 1: มีช่องเดียวที่จับคู่ก็ต้องหาแถวนักเรียนเจอ ──
+
+@needs_chrome
+def test_a_payload_with_only_the_final_field_fills_by_code():
+    p = score_payload(fields=[{"id": "Final"}], strict=False)
+    p["students"] = [{"code": c, "values": [25 + i]} for i, c in enumerate(CODES)]
+    out = run_on_mock(mock_sgs.render(["10003", "10001", "10002"], open_phase="post"), p)
+    assert out["result"]["canFill"] is True, [i for i in out["result"]["items"] if not i["ok"]]
+    assert out["values"]["10001"][3] == "25" and out["values"]["10003"][3] == "27"
+
+
+@needs_chrome
+def test_a_payload_with_only_s1_fills_by_code():
+    p = score_payload(fields=[{"id": "S1"}], strict=False)
+    p["students"] = [{"code": c, "values": [20 + i]} for i, c in enumerate(CODES)]
+    out = run_on_mock(mock_sgs.render(CODES), p)
+    assert out["result"]["canFill"] is True
+    assert out["values"]["10002"][0] == "21"
+
+
+@needs_chrome
+def test_a_matrix_payload_with_only_q1_fills_by_code():
+    p = matrix_payload(fields=[{"id": "Q1"}], blank=[f"Q{i}" for i in range(2, 11)])
+    p["students"] = [{"code": c, "values": [2]} for c in CODES]
+    out = run_on_mock(mock_sgs.render_matrix(CODES), p)
+    assert out["result"]["canFill"] is True
+    assert out["values"]["10001"][5] == "2" and out["values"]["10001"][6] == ""
+
+
+# ── Final review, Important 5: ข้อความบนแผงต้องเป็นกลาง ไม่พาครูสาธารณะไป "vk web" ──
+
+def test_failure_panel_wording_is_neutral_for_public_users():
+    from tests.fill_harness import SCRIPT
+    src = SCRIPT.read_text(encoding="utf-8")
+    assert "vk web" not in src and "/sgs" not in src

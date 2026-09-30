@@ -74,3 +74,16 @@ def test_thai_text_and_shared_strings_are_decoded():
 def test_a_file_that_is_not_xlsx_is_refused_in_thai():
     with pytest.raises(RuntimeError, match="ไม่ใช่ไฟล์ .xlsx"):
         run_js("await SF.readXlsx(new Uint8Array([1,2,3,4,5]).buffer);", modules=MODS)
+
+
+# ── Final review, Important 3: ค่าลอยตัวจากสูตร Excel ต้องไม่หลุดเข้า SGS ──
+
+@needs_chrome
+def test_float_noise_from_formulas_is_cleaned_but_real_decimals_are_kept():
+    def build(wb):
+        ws = wb.active
+        ws.append(["x", "y", "z", "w"])
+        ws.append([0.1 + 0.2, 5.3999999999999995, 13.125, 20])
+
+    rows = read(workbook_b64(build))["sheets"][0]["rows"]
+    assert rows[1] == ["0.3", "5.4", "13.125", "20"]

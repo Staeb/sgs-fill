@@ -180,3 +180,19 @@ def test_page_never_scrolls_sideways_even_with_a_wide_preview_table(site):
     """
     out = drive(site, steps)
     assert out["ok"] and out["sw"] <= out["iw"], (out["sw"], out["iw"])
+
+
+# ── Final review, Important 2: ครูเห็นหน้าตาของคอลัมน์ที่จับคู่ และถูกเตือนเรื่องหัวตารางสองชั้น ──
+
+@needs_chrome
+def test_each_mapped_column_shows_a_sample_and_range_next_to_its_dropdown(site):
+    steps = paste_steps(TSV) + "out.stats = document.getElementById('stats_S1').textContent;"
+    out = drive(site, steps)
+    assert "20" in out["stats"] and "22" in out["stats"] and "–" in out["stats"], out["stats"]
+
+
+@needs_chrome
+def test_merged_header_over_sub_scores_warns_before_the_teacher_copies(site):
+    text = "รหัส\tก่อนกลางภาค\t\t\n\tงาน1\tงาน2\tรวม\n07112\t10\t12\t22\n"
+    out = drive(site, paste_steps(text))
+    assert "หัวตารางชั้นที่สอง" in out["report"], out["report"]

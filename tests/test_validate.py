@@ -107,3 +107,40 @@ def test_field_ids_follow_the_target_order_not_the_column_order():
     r = validate([["07112", "15", "18"]], fieldCols={"Midterm": 1, "S1": 2}, maxByField={})
     assert r["fieldIds"] == ["S1", "Midterm"]
     assert r["students"][0]["values"] == [18, 15]
+
+
+# ── Final review, Important 3: ค่าที่ Excel แสดงปัดเศษแต่เก็บทศนิยมยาว ──
+
+@needs_chrome
+def test_more_than_two_decimals_is_a_blocking_error_because_excel_may_show_it_rounded():
+    r = validate([["07112", "13.125", "15"], ["07113", "12.5", "15.25"]])
+    dec = [e for e in r["errors"] if e["type"] == "DECIMALS"]
+    assert dec and dec[0]["codes"] == ["07112"]
+    assert "ปัดเศษ" in dec[0]["message"]
+
+
+@needs_chrome
+def test_up_to_two_decimals_is_fine():
+    assert validate([["07113", "12.5", "15.25"]])["errors"] == []
+
+
+# ── Final review, Important 2: หัวตารางสองชั้น/จับคู่คอลัมน์ผิดต้องไม่ผ่านเงียบ ๆ ──
+
+@needs_chrome
+def test_a_second_header_row_under_a_merged_header_is_named_in_a_warning():
+    r = validate([["", "งาน1", "งาน2"], ["07112", "10", "12"]])
+    assert any("หัวตารางชั้นที่สอง" in w for w in r["warnings"]), r["warnings"]
+
+
+@needs_chrome
+def test_a_column_whose_maximum_is_far_below_the_full_mark_is_flagged():
+    r = validate([["07112", "8", "15"], ["07113", "10", "16"]])          # S1 เต็ม 25 แต่สูงสุดแค่ 10
+    assert any("S1" in w and "10" in w and "25" in w for w in r["warnings"]), r["warnings"]
+    assert not any("Midterm" in w for w in r["warnings"]), "Midterm สูงสุด 16 จาก 20 ปกติดี"
+
+
+@needs_chrome
+def test_column_stats_give_a_sample_and_range():
+    out = run_js("return SF.columnStats([['a','18'],['b','x'],['c','25'],['d',''],['e','9']], 1);",
+                 modules=MODS)
+    assert out == {"numbers": 3, "min": 9, "max": 25, "sample": ["18", "x", "25"]}

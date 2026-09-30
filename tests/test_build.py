@@ -60,3 +60,32 @@ def test_page_shows_the_credit_and_the_privacy_promise(built):
 
 def test_howto_mentions_setting_rows_per_page_before_starting(built):
     assert "จำนวนแถวต่อหน้า" in built
+
+
+# ── Final review, Important 4: ลิงก์บุ๊กมาร์กเล็ตต้องสั้นพอ (เบราว์เซอร์บางตัวจำกัด ~65,536 ตัวอักษร) ──
+
+MAX_BOOKMARKLET_CHARS = 50000
+
+
+def test_the_bookmarklet_href_stays_well_under_browser_limits(built):
+    href = re.search(r'id="bookmarklet"[^>]*href="(javascript:[^"]+)"', built).group(1)
+    assert len(href) < MAX_BOOKMARKLET_CHARS, len(href)
+
+
+def test_the_bookmarklet_body_has_no_comments_and_no_line_comment_marker(built):
+    href = re.search(r'id="bookmarklet"[^>]*href="(javascript:[^"]+)"', built).group(1)
+    body = unquote(href[len("javascript:"):])
+    assert "/*" not in body and "*/" not in body and "//" not in body
+
+
+def test_the_stripped_bookmarklet_still_fills_the_mock():
+    """สคริปต์ที่ตัดความเห็นแล้วต้องทำงานเหมือนเดิม — รันตัวที่ถอดจากลิงก์จริงบนหน้าจำลอง"""
+    import json
+    from tests.chrome import run_page
+    from tests.fill_harness import PROBE, mock_sgs, score_payload
+    body = build.render_script(build.version())
+    page = mock_sgs.render(["10001", "10002", "10003"]).replace("</body>", (
+        "<script>window.__SGS_TEST_PAYLOAD__ = " + json.dumps(json.dumps(score_payload())) + ";</script>"
+        "<script>" + body + "</script>" + PROBE % {"click": "true"} + "</body>"))
+    out = run_page(page)
+    assert out["result"]["canFill"] is True and out["values"]["10001"][:2] == ["20", "15"]

@@ -1,6 +1,6 @@
 /* กรอกคะแนนเข้าหน้า SGS "บันทึกผลการเรียน" โดยจับคู่ด้วยรหัสนักเรียน
  *
- * ใช้เป็นบุ๊กมาร์กเล็ต (ดูหน้า /sgs ของ vk web) ทำงานเฉพาะตอนกดเท่านั้น
+ * ใช้เป็นบุ๊กมาร์กเล็ต (ดูหน้าติดตั้งของเว็บที่ให้สคริปต์นี้) ทำงานเฉพาะตอนกดเท่านั้น
  * อ่านข้อมูลจาก clipboard (สร้างโดยปุ่ม "คัดลอกข้อมูลสำหรับ SGS" ในหน้าคะแนน)
  *
  * กติกา: ตรวจก่อนกรอกทุกครั้ง — ไม่ผ่านข้อไหนปุ่มกรอกกดไม่ได้ · ไม่กดบันทึกให้ · ไม่ส่งข้อมูลออกไปไหน
@@ -30,17 +30,17 @@
   function inputOf(row, id) { return row.querySelector('input[id$="_' + id + '"]'); }
 
   /* แถวของนักเรียนจริง ๆ — SGS ห่อช่องกรอกแต่ละช่องไว้ในตารางย่อย closest('tr') จึงได้แถวของ
-     ตารางย่อย (มีช่องเดียว) ต้องไต่ขึ้นไปจนเจอแถวที่มีทุกช่องที่จะกรอก และมีช่องแรกแค่ช่องเดียว
-     เงื่อนไขหลังกันไม่ให้ไต่เลยไปถึงกรอบของทั้งหน้า ซึ่งมีช่องของนักเรียนทุกคน */
+     ตารางย่อย (มีช่องเดียว) จึงไต่ขึ้นไปหาแถวนอกสุดที่ยังมีช่องแรกเพียงช่องเดียว — แถวถัดขึ้นไปคือกรอบ
+     ของทั้งหน้าซึ่งมีช่องของนักเรียนทุกคน ใช้ได้แม้จับคู่แค่ช่องเดียว (ช่องอื่นที่ขาดตรวจแยกใน check) */
   function studentRow(seed, ids) {
+    var selector = 'input[id$="_' + ids[0] + '"]';
     var tr = seed.closest('tr');
-    while (tr) {
-      var complete = ids.every(function (id) { return inputOf(tr, id); });
-      if (complete && tr.querySelectorAll('input[id$="_' + ids[0] + '"]').length === 1) { return tr; }
-      var up = tr.parentElement;
-      tr = up ? up.closest('tr') : null;
+    if (!tr) { return null; }
+    while (true) {
+      var up = tr.parentElement ? tr.parentElement.closest('tr') : null;
+      if (!up || up.querySelectorAll(selector).length !== 1) { return tr; }
+      tr = up;
     }
-    return null;
   }
 
   function fieldMax(input) {
@@ -451,7 +451,7 @@
 
     body.appendChild(el('div', 'margin:12px 0 4px;font-weight:700', 'ทำตามนี้'));
     var steps = el('ol', 'margin:0;padding-left:20px;color:#2c3e48');
-    ['กลับไปหน้าตารางคะแนนของ vk web เลือกห้องและช่วงที่ SGS เปิดอยู่',
+    ['กลับไปที่หน้าเว็บที่ให้คัดลอกข้อมูล เลือกห้อง/หน้าและช่วงที่ SGS เปิดอยู่',
       'กดปุ่ม "คัดลอกข้อมูลสำหรับ SGS" (ต้องเห็นข้อความ "คัดลอกแล้ว")',
       'กลับมาที่หน้านี้แล้วกดปุ่มด้านล่าง'].forEach(function (s) {
       steps.appendChild(el('li', 'margin:2px 0', s));
@@ -470,7 +470,7 @@
     var ta = el('textarea', 'width:100%;height:84px;box-sizing:border-box;padding:8px;border:1px solid #9fb3ba;' +
       'border-radius:7px;font:13px ' + FONT);
     ta.id = 'sgs-fill-paste';
-    ta.setAttribute('placeholder', 'วางข้อมูลที่คัดลอกจาก vk web ตรงนี้');
+    ta.setAttribute('placeholder', 'วางข้อมูลที่คัดลอกจากหน้าเว็บตรงนี้');
     area.appendChild(ta);
     var go = el('div', 'margin-top:6px');
     go.appendChild(button('ตรวจข้อมูล', 'ok', 'primary', function () { begin(ta.value); }));
@@ -535,14 +535,14 @@
     try {
       p = JSON.parse(text);
     } catch (e) {
-      return showProblem(box, 'สิ่งที่อยู่ใน clipboard ไม่ใช่ข้อมูลจาก vk web');
+      return showProblem(box, 'สิ่งที่อยู่ใน clipboard ไม่ใช่ข้อมูลที่คัดลอกจากหน้าเว็บ');
     }
     if (p && p.min_script_version && versionLess(SCRIPT_VERSION, p.min_script_version)) {
       return showProblem(box, 'ข้อมูลนี้ต้องใช้สคริปต์เวอร์ชัน ' + p.min_script_version +
         ' ขึ้นไป (ของคุณคือ ' + SCRIPT_VERSION + ') — ลากบุ๊กมาร์กเล็ตใหม่จากหน้าเว็บ');
     }
     if (!p || p.v !== 1 || !p.students || !p.fields) {
-      return showProblem(box, 'ข้อมูลไม่ตรงเวอร์ชันของสคริปต์นี้ — ติดตั้งบุ๊กมาร์กเล็ตใหม่จากหน้า /sgs');
+      return showProblem(box, 'ข้อมูลไม่ตรงเวอร์ชันของสคริปต์นี้ — ติดตั้งบุ๊กมาร์กเล็ตใหม่จากหน้าเว็บที่ให้สคริปต์นี้');
     }
     render(box, check(p));
   }

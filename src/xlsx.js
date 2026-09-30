@@ -85,7 +85,12 @@ var SF = SF || {};
         else if (type === 's') { value = shared[parseInt(v.textContent, 10)] || ''; }
         else if (type === 'b') { value = v.textContent === '1' ? 'TRUE' : 'FALSE'; }
         else if (type === 'e') { value = ''; }
-        else { value = v.textContent; }
+        else {
+          /* ตัวเลขที่เก็บในไฟล์คือค่าดิบของ Excel ซึ่งอาจมีเศษลอยตัวจากสูตร (5.3999999999999995)
+             ตัดเหลือ 12 หลักนัยสำคัญ — ค่าจริงที่มีทศนิยมยาวยังคงอยู่ให้ validate เตือน */
+          var num = Number(v.textContent);
+          value = isFinite(num) ? String(Number(num.toPrecision(12))) : v.textContent;
+        }
         var col = colIndex(c.getAttribute('r') || '');
         row[col] = value;
         width = Math.max(width, col + 1);

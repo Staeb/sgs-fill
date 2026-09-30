@@ -21,8 +21,23 @@ def version() -> str:
     return (ROOT / "VERSION").read_text(encoding="utf-8").strip()
 
 
+def strip_for_bookmarklet(source: str) -> str:
+    """ตัดความเห็นบล็อกและช่องว่างหัวบรรทัดออก ให้ลิงก์บุ๊กมาร์กเล็ตสั้นลง
+
+    ข้อความไทยในลิงก์กลายเป็น %XX ยาวเก้าตัวอักษรต่อหนึ่งตัว ลิงก์เต็มไฟล์จึงเฉียด 65,536 ที่เบราว์เซอร์
+    บางตัวจำกัด ความเห็นทั้งหมดในสคริปต์เป็นแบบบล็อก และไม่มีสตริงหรือ regex ที่มี /* อยู่ข้างใน
+    (เทสต์รันตัวที่ตัดแล้วบนหน้าจำลองยืนยันว่าทำงานเหมือนเดิม) ยังคงเก็บบรรทัดใหม่ไว้เพราะโค้ดพึ่ง ; ทุกที่
+    """
+    import re
+
+    no_comments = re.sub(r"/\*.*?\*/", "", source, flags=re.S)
+    lines = [ln.strip() for ln in no_comments.splitlines()]
+    return "\n".join(ln for ln in lines if ln) + "\n"
+
+
 def render_script(ver: str) -> str:
-    return (ROOT / "fill" / "sgs_fill.js").read_text(encoding="utf-8").replace("__SCRIPT_VERSION__", ver)
+    raw = (ROOT / "fill" / "sgs_fill.js").read_text(encoding="utf-8").replace("__SCRIPT_VERSION__", ver)
+    return strip_for_bookmarklet(raw)
 
 
 def bookmarklet_href(script: str) -> str:
