@@ -1,0 +1,31 @@
+:root { --ink:#14232b; --muted:#5b6770; --teal:#0b5c6b; --line:#c9d6db; --bad:#b00020; --ok:#0a6b2d; --warn:#8a4b00; --bg:#f4f8f9; }
+* { box-sizing: border-box; }
+body { margin:0; font:16px/1.55 Sarabun, "Noto Sans Thai", Thonburi, system-ui, sans-serif; color:var(--ink); background:var(--bg); }
+.top { background:var(--teal); color:#fff; padding:1.2rem max(1rem, calc((100vw - 60rem)/2)); }
+.top h1 { margin:0 0 .2rem; font-size:1.6rem; }
+.top p { margin:.2rem 0; }
+.privacy { background:rgba(255,255,255,.14); padding:.4rem .7rem; border-radius:8px; display:inline-block; }
+main { max-width:60rem; margin:1rem auto; padding:0 1rem; display:grid; gap:1rem; }
+.card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:1rem 1.2rem; }
+.card h2 { margin:0 0 .6rem; font-size:1.15rem; color:var(--teal); }
+label { margin-right:1rem; display:inline-block; }
+input, select, textarea, button { font:inherit; }
+textarea { width:100%; padding:.5rem; border:1px solid var(--line); border-radius:8px; }
+input[type=text], input:not([type]), input[type=number], select { padding:.25rem .4rem; border:1px solid var(--line); border-radius:6px; }
+button { padding:.5rem 1rem; border-radius:8px; border:1.5px solid var(--teal); background:var(--teal); color:#fff; font-weight:600; cursor:pointer; }
+button.secondary { background:#fff; color:var(--teal); }
+button:disabled { opacity:.45; cursor:not-allowed; }
+.drag { display:inline-block; margin:.3rem 0; padding:.45rem .9rem; border:2px dashed var(--teal); border-radius:8px; color:var(--teal); font-weight:700; text-decoration:none; cursor:grab; }
+.hint { color:var(--muted); font-size:.9rem; }
+.msg { color:var(--muted); min-height:1.2rem; }
+.scroll { overflow:auto; max-height:16rem; }
+table { border-collapse:collapse; font-size:.9rem; }
+td, th { border:1px solid var(--line); padding:.15rem .4rem; white-space:nowrap; }
+tr.hdr td { background:#e8f1f3; font-weight:700; }
+.row-map { display:flex; gap:.6rem; align-items:center; margin:.25rem 0; flex-wrap:wrap; }
+.row-map .name { min-width:14rem; }
+.line { margin:.3rem 0; }
+.line.ok { color:var(--ok); } .line.bad { color:var(--bad); } .line.warn { color:var(--warn); }
+.line small { display:block; color:var(--muted); }
+footer { max-width:60rem; margin:1rem auto 2rem; padding:0 1rem; color:var(--muted); font-size:.9rem; }
+.credit { color:#a3adb3; text-align:center; font-size:.8rem; }

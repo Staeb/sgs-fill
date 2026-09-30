@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="__CSP__">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ช่วยกรอก SGS</title>
+<style>/*__CSS__*/</style>
+</head>
+<body>
+<header class="top">
+  <h1>ช่วยกรอก SGS</h1>
+  <p>วางหรือเลือกไฟล์ Excel → จับคู่คอลัมน์ → คัดลอก → กรอกลง SGS โดยจับคู่ด้วย<b>รหัสนักเรียน</b></p>
+  <p class="privacy">🔒 ข้อมูลนักเรียนไม่ออกจากเครื่องของคุณ — หน้านี้ไม่มีเซิร์ฟเวอร์ ไม่ส่งข้อมูลไปที่ใด (ตรวจได้: เปิดโค้ดของบุ๊กมาร์กเล็ตดูได้)</p>
+</header>
+
+<main>
+<section id="howto" class="card">
+  <h2>วิธีใช้</h2>
+  <ol>
+    <li><b>ติดตั้งครั้งเดียว:</b> ลากปุ่มด้านล่างขึ้นไปวางบนแถบบุ๊กมาร์กของเบราว์เซอร์ (กด ⌘⇧B / Ctrl+Shift+B ถ้าแถบไม่แสดง)<br>
+      <a id="bookmarklet" class="drag" href="__BOOKMARKLET__" title="ลากไปวางบนแถบบุ๊กมาร์ก อย่าคลิกที่หน้านี้">กรอก SGS</a>
+      <span class="hint">สคริปต์เวอร์ชัน <b id="version">__VERSION__</b> — ถ้าเวอร์ชันบนแผงใน SGS ไม่ตรงกับเลขนี้ ให้ลากปุ่มใหม่</span></li>
+    <li><b>เตรียมหน้า SGS:</b> เปิดหน้าที่จะกรอก เลือกวิชาและกลุ่ม แล้วตั้ง<b>จำนวนแถวต่อหน้า</b>ให้มากกว่าจำนวนนักเรียน (เช่น 100)
+      เพราะ SGS แสดงแค่ 10 แถวเป็นค่าเริ่มต้น</li>
+    <li><b>ใส่ข้อมูลและจับคู่คอลัมน์</b> ด้านล่างจนขึ้นว่าพร้อมแล้ว แล้วกด <b>คัดลอก</b></li>
+    <li><b>ที่หน้า SGS กดบุ๊กมาร์ก "กรอก SGS"</b> อ่านแผงรายงาน ถ้ามีข้อ ✗ ปุ่มกรอกจะกดไม่ได้ ผ่านแล้วกด <b>กรอก</b></li>
+    <li><b>ตรวจผล แล้วกดบันทึกของ SGS เอง</b> — เครื่องมือนี้ไม่กดบันทึกให้</li>
+  </ol>
+  <details><summary>คำถามที่พบบ่อย</summary>
+    <p><b>ปุ่มกรอกกดไม่ได้?</b> ดูข้อที่มี ✗ ในแผง — รหัสไม่ตรง คะแนนเต็มไม่ตรง วิชา/กลุ่มไม่ตรง หรือ SGS ยังไม่เปิดช่วงนั้น</p>
+    <p><b>SGS แสดงไม่ครบทุกแถว?</b> ตั้งจำนวนแถวต่อหน้าให้มากขึ้นแล้วกด "ตรวจใหม่"</p>
+    <p><b>รหัสนักเรียนใน Excel เลขศูนย์นำหน้าหาย?</b> ช่อง "เติมศูนย์ให้ครบ" ด้านล่างเติมให้ (ค่าเริ่มต้น 5 หลัก)</p>
+    <p><b>นักเรียนที่ถูกข้าม?</b> คนที่คะแนนว่างหรือเป็นสัญลักษณ์ เช่น ขส/ร/มส จะไม่ถูกกรอกและไม่ใส่ 0 ให้ — ตัดสินใจเอง</p>
+    <p><b>ไฟล์ .xls เก่า?</b> ไม่รองรับ ให้บันทึกเป็น .xlsx หรือคัดลอกตารางแล้ววางในช่อง</p>
+  </details>
+</section>
+
+<section class="card" id="s1">
+  <h2>1 · เลือกหน้า SGS</h2>
+  <label><input type="radio" name="target" value="score" checked> คะแนน (บันทึกผลการเรียน)</label>
+  <label><input type="radio" name="target" value="desirable"> คุณลักษณะอันพึงประสงค์</label>
+  <label><input type="radio" name="target" value="reading"> การอ่าน คิดวิเคราะห์ และเขียน</label>
+</section>
+
+<section class="card" id="s2">
+  <h2>2 · ใส่ข้อมูล</h2>
+  <textarea id="paste" rows="5" placeholder="คัดลอกตารางจาก Excel (รวมแถวหัวตาราง) แล้ววางที่นี่"></textarea>
+  <p>หรือเลือกไฟล์ <input id="file" type="file" accept=".xlsx,.csv,.tsv,.txt">
+     <select id="sheet" hidden aria-label="เลือกชีต"></select></p>
+  <p>แถวหัวตารางคือแถวที่ <input id="headerRow" type="number" min="1" value="1" style="width:4rem"></p>
+  <p id="loadMessage" class="msg"></p>
+  <div class="scroll"><table id="preview"></table></div>
+</section>
+
+<section class="card" id="s3">
+  <h2>3 · จับคู่คอลัมน์</h2>
+  <p><label>คอลัมน์รหัสนักเรียน <select id="codeCol"></select></label>
+     <label>เติมศูนย์ให้ครบ <input id="pad" type="number" min="0" max="12" value="5" style="width:3.5rem"> หลัก (0 = ไม่เติม)</label></p>
+  <p><label>รหัสวิชา <input id="subject" placeholder="เช่น ค21101"></label>
+     <label>กลุ่ม <input id="section" placeholder="เช่น 1" style="width:4rem"></label>
+     <span class="hint">ไม่ใส่ก็ได้ แต่จะไม่ตรวจว่าเลือกวิชา/กลุ่มถูกบน SGS</span></p>
+  <div id="fieldMaps"></div>
+  <p id="presets"></p>
+  <p><label><input type="checkbox" id="strict"> โหมดเข้มงวด: รหัสในไฟล์ต้องตรงกับที่ SGS แสดงพอดี (ค่าเริ่มต้นคือยืดหยุ่น กรอกเฉพาะรหัสที่พบ)</label></p>
+</section>
+
+<section class="card" id="s4">
+  <h2>4 · ตรวจและคัดลอก</h2>
+  <div id="report"></div>
+  <p><button id="copy" disabled>คัดลอกข้อมูลสำหรับ SGS</button>
+     <button id="copyReport" class="secondary">คัดลอกรายงานปัญหา (ไม่มีข้อมูลนักเรียน)</button>
+     <span id="status" class="msg" role="status"></span></p>
+  <details id="manualBox" hidden><summary>คัดลอกเอง</summary>
+    <textarea id="manualcopy" rows="4" readonly></textarea></details>
+</section>
+</main>
+
+<footer>
+  <p>ไม่ใช่เครื่องมือของ สพฐ. หรือระบบ SGS — ครูต้องตรวจผลและกดบันทึกเอง ผู้พัฒนาไม่รับผิดชอบต่อข้อมูลที่กรอกผิด</p>
+  <p class="credit">Develop by Kru staeb · v<span>__VERSION__</span></p>
+</footer>
+<script>/*__JS__*/</script>
+</body>
+</html>
