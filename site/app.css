@@ -5,7 +5,7 @@ body { margin:0; font:16px/1.55 Sarabun, "Noto Sans Thai", Thonburi, system-ui, 
 .top h1 { margin:0 0 .2rem; font-size:1.6rem; }
 .top p { margin:.2rem 0; }
 .privacy { background:rgba(255,255,255,.14); padding:.4rem .7rem; border-radius:8px; display:inline-block; }
-main { max-width:60rem; margin:1rem auto; padding:0 1rem; display:grid; gap:1rem; }
+main { max-width:60rem; margin:1rem auto; padding:0 1rem; display:grid; grid-template-columns:minmax(0,1fr); gap:1rem; }
 .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:1rem 1.2rem; }
 .card h2 { margin:0 0 .6rem; font-size:1.15rem; color:var(--teal); }
 label { margin-right:1rem; display:inline-block; }
@@ -29,3 +29,8 @@ tr.hdr td { background:#e8f1f3; font-weight:700; }
 .line small { display:block; color:var(--muted); }
 footer { max-width:60rem; margin:1rem auto 2rem; padding:0 1rem; color:var(--muted); font-size:.9rem; }
 .credit { color:#a3adb3; text-align:center; font-size:.8rem; }
+
+.card { min-width:0; overflow-wrap:anywhere; }
+.scroll { max-width:100%; }
+textarea, select { max-width:100%; }
+@media (max-width: 520px) { .row-map .name { min-width:0; width:100%; } input[type=number] { max-width:100%; } }
