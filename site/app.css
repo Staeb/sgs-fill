@@ -4,13 +4,6 @@
   --bad:#b00020; --ok:#0a6b2d; --warn:#8a4b00; --ok-bg:#e8f6ed; --ok-line:#b9dfc6; --warn-bg:#fff6e5; --warn-line:#f0d9a8;
   --radius:12px;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --ink:#e6eef1; --muted:#a4b3ba; --faint:#7d8d95; --teal:#4db6c8; --teal-soft:#16333a; --teal-line:#2c6572;
-    --line:#2b3d44; --card:#182329; --bg:#0f181c; --field:#1d2b32;
-    --bad:#ff7a90; --ok:#6fd58f; --warn:#f0b35c; --ok-bg:#12301f; --ok-line:#245a38; --warn-bg:#33270f; --warn-line:#6b5220;
-  }
-}
 * { box-sizing: border-box; }
 body { margin:0; font:16px/1.6 Sarabun, "Noto Sans Thai", Thonburi, system-ui, sans-serif; color:var(--ink); background:var(--bg); }
 .wrap { max-width:60rem; margin-inline:auto; padding-inline:1rem; }
