@@ -18,7 +18,7 @@ from typing import Any
 from urllib.parse import unquote
 
 ROOT = Path(__file__).resolve().parent.parent
-SRC_ORDER = ("text", "parse", "xlsx", "mapping", "validate", "payload", "ui")
+SRC_ORDER = ("text", "parse", "xlsx", "mapping", "validate", "payload", "pp5", "ui")
 
 CHROME_CANDIDATES = (
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",

@@ -14,7 +14,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 ROOT = Path(__file__).resolve().parent
-SRC_ORDER = ("text", "parse", "xlsx", "mapping", "validate", "payload", "ui")
+SRC_ORDER = ("text", "parse", "xlsx", "mapping", "validate", "payload", "pp5", "ui")
 
 
 def version() -> str:

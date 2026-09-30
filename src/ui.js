@@ -3,7 +3,8 @@ var SF = SF || {};
 (function () {
   var VERSION = '__VERSION__';
   var $ = function (id) { return document.getElementById(id); };
-  var state = { table: [], sheets: null, target: 'score', payloadText: '', guess: null, result: null };
+  var state = { table: [], sheets: null, target: 'score', payloadText: '', guess: null, result: null,
+                pp5: null, manual: false, phase: null };
 
   function clear(node) { while (node.firstChild) { node.removeChild(node.firstChild); } }
   function mk(tag, text, cls) {
@@ -166,6 +167,69 @@ var SF = SF || {};
     }
   }
 
+  var PHASE_FIELDS = { pre: ['S1', 'Midterm'], post: ['S10', 'Final'] };
+
+  function applyPhase(phase) {
+    var keep = PHASE_FIELDS[phase];
+    SF.TARGETS.score.fields.forEach(function (f) {
+      var sel = $('map_' + f.id);
+      if (sel && keep.indexOf(f.id) < 0) { sel.value = '-1'; }
+    });
+    Array.prototype.forEach.call(document.getElementsByName('phase'), function (r) { r.checked = (r.value === phase); });
+  }
+
+  /* ไฟล์ ปพ.5 ของโรงเรียน: ดึงตารางที่แยกแล้วและจับคู่ให้เอง (ครูไม่ต้องเลือกคอลัมน์) */
+  function applyPp5() {
+    var ex = SF.pp5Extract(state.pp5, state.sheets, state.target);
+    var banner = $('pp5Banner');
+    if (!ex.ok) {
+      banner.hidden = false;
+      banner.className = 'banner warn';
+      banner.textContent = 'พบไฟล์ ปพ.5 แต่อ่านหน้านี้ไม่ได้: ' + ex.message + ' — ลองติ๊ก "จับคู่คอลัมน์เอง"';
+      say('loadMessage', ex.message);
+      state.manual = true;
+      $('manualMap').checked = true;
+      showRaw(0);
+      return;
+    }
+    say('loadMessage', '');
+    banner.hidden = false;
+    banner.className = 'banner';
+    banner.textContent = 'พบไฟล์ ปพ.5' + (state.pp5.subject ? ' · วิชา ' + state.pp5.subject : '') +
+      (state.pp5.room ? ' · ห้อง ' + state.pp5.room : '') + ' · อ่านหน้า "' + SF.TARGETS[state.target].label +
+      '" ให้อัตโนมัติ ' + (ex.table.length - 1) + ' คน — ตรวจตารางด้านล่างแล้วกดคัดลอกได้เลย';
+    state.table = ex.table;
+    state.guess = ex.guess;
+    $('headerRow').value = 1;
+    if (!$('subject').value && state.pp5.subject) { $('subject').value = state.pp5.subject; }
+    if (!$('section').value && state.pp5.section) { $('section').value = state.pp5.section; }
+    renderPreview();
+    renderMapping(false);
+    var isScore = state.target === 'score';
+    $('phaseBox').hidden = !isScore;
+    if (isScore) {
+      SF.TARGETS.score.fields.forEach(function (f) {
+        var m = $('max_' + f.id);
+        if (m && ex.maxByField[f.id] !== undefined) { m.value = String(ex.maxByField[f.id]); }
+      });
+      applyPhase(state.phase || (ex.hasData.Final ? 'post' : 'pre'));
+    }
+    /* โหมด ปพ.5: ซ่อนแถวของช่องที่ไม่ได้ใช้ (เช่นข้อ 9-10 หรือช่วงที่ SGS ไม่ได้เปิด) ให้ขั้นนี้ไม่รก */
+    SF.TARGETS[state.target].fields.forEach(function (f) {
+      var sel = $('map_' + f.id);
+      if (sel) { sel.parentNode.hidden = sel.value === '-1'; }
+    });
+    recompute();
+  }
+
+  function showRaw(i) {
+    $('phaseBox').hidden = true;
+    var sel = $('sheet');
+    fillSheetSelect();
+    sel.value = String(i);
+    loadTable(state.sheets[i].rows);
+  }
+
   function loadTable(rows) {
     state.table = rows;
     $('headerRow').value = 1;
@@ -188,6 +252,10 @@ var SF = SF || {};
   $('paste').addEventListener('input', function () {
     if (!$('paste').value.trim()) { return; }
     state.sheets = null;
+    state.pp5 = null;
+    $('manualRow').hidden = true;
+    $('pp5Banner').hidden = true;
+    $('phaseBox').hidden = true;
     $('sheet').hidden = true;
     say('loadMessage', '');
     loadTable(SF.parseDelimited($('paste').value));
@@ -201,18 +269,45 @@ var SF = SF || {};
       if (/\.xlsx$/i.test(f.name)) {
         var r = await SF.readXlsx(await f.arrayBuffer());
         state.sheets = r.sheets;
-        fillSheetSelect();
-        loadTable(state.sheets[0].rows);
+        state.pp5 = SF.detectPp5(state.sheets);
+        state.phase = null;
+        state.manual = false;
+        $('manualMap').checked = false;
+        $('manualRow').hidden = !state.pp5;
+        $('pp5Banner').hidden = true;
+        if (state.pp5) {
+          $('sheet').hidden = true;
+          applyPp5();
+        } else {
+          fillSheetSelect();
+          loadTable(state.sheets[0].rows);
+        }
       } else if (/\.xls$/i.test(f.name)) {
         say('loadMessage', 'ไม่รองรับไฟล์ .xls เก่า — บันทึกเป็น .xlsx หรือคัดลอกตารางมาวาง');
       } else {
         state.sheets = null;
+        state.pp5 = null;
+        $('manualRow').hidden = true;
+        $('pp5Banner').hidden = true;
+        $('phaseBox').hidden = true;
         $('sheet').hidden = true;
         loadTable(SF.parseDelimited(await f.text()));
       }
     } catch (e) {
       say('loadMessage', e.message);
     }
+  });
+
+  $('manualMap').addEventListener('change', function () {
+    state.manual = $('manualMap').checked;
+    if (state.manual) { $('pp5Banner').hidden = true; showRaw(0); } else { $('sheet').hidden = true; applyPp5(); }
+  });
+  Array.prototype.forEach.call(document.getElementsByName('phase'), function (r) {
+    r.addEventListener('change', function () {
+      if (!r.checked || !state.pp5 || state.manual) { return; }
+      state.phase = r.value;
+      applyPp5();
+    });
   });
 
   $('sheet').addEventListener('change', function () {
@@ -227,6 +322,8 @@ var SF = SF || {};
     r.addEventListener('change', function () {
       if (!r.checked) { return; }
       state.target = r.value;
+      if (state.pp5 && !state.manual) { applyPp5(); return; }
+      $('phaseBox').hidden = true;
       renderMapping(true);
       recompute();
     });

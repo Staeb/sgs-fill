@@ -32,6 +32,9 @@
     <p><b>SGS แสดงไม่ครบทุกแถว?</b> ตั้งจำนวนแถวต่อหน้าให้มากขึ้นแล้วกด "ตรวจใหม่"</p>
     <p><b>รหัสนักเรียนใน Excel เลขศูนย์นำหน้าหาย?</b> ช่อง "เติมศูนย์ให้ครบ" ด้านล่างเติมให้ (ค่าเริ่มต้น 5 หลัก)</p>
     <p><b>นักเรียนที่ถูกข้าม?</b> คนที่คะแนนว่างหรือเป็นสัญลักษณ์ เช่น ขส/ร/มส จะไม่ถูกกรอกและไม่ใส่ 0 ให้ — ตัดสินใจเอง</p>
+    <p><b>ไฟล์ ปพ.5 ของโรงเรียน (Excel ที่มีชีต "ก่อนกลางภาค-กลางภาค", "หลังกลางภาค-ปลายภาค", "คุณลักษณะ-การอ่าน")?</b>
+       เลือกไฟล์แล้วระบบอ่านให้เอง — รู้รหัสวิชา ห้อง คะแนนเต็ม และคอลัมน์ผลรวม เลือกแค่หน้า SGS ที่จะกรอก
+       (และช่วงก่อน+กลาง/หลัง+ปลาย) ถ้าไฟล์ไม่ตรงแม่แบบ ติ๊ก "จับคู่คอลัมน์เอง"</p>
     <p><b>ไฟล์ .xls เก่า?</b> ไม่รองรับ ให้บันทึกเป็น .xlsx หรือคัดลอกตารางแล้ววางในช่อง</p>
   </details>
 </section>
@@ -48,6 +51,8 @@
   <textarea id="paste" rows="5" placeholder="คัดลอกตารางจาก Excel (รวมแถวหัวตาราง) แล้ววางที่นี่"></textarea>
   <p>หรือเลือกไฟล์ <input id="file" type="file" accept=".xlsx,.csv,.tsv,.txt">
      <select id="sheet" hidden aria-label="เลือกชีต"></select></p>
+  <div id="pp5Banner" class="banner" hidden></div>
+  <p id="manualRow" hidden><label><input type="checkbox" id="manualMap"> จับคู่คอลัมน์เอง (แสดงตารางดิบของไฟล์ ใช้เมื่อไฟล์ ปพ.5 ไม่ตรงแม่แบบ)</label></p>
   <p>แถวหัวตารางคือแถวที่ <input id="headerRow" type="number" min="1" value="1" style="width:4rem"></p>
   <p id="loadMessage" class="msg"></p>
   <div class="scroll"><table id="preview"></table></div>
@@ -60,6 +65,9 @@
   <p><label>รหัสวิชา <input id="subject" placeholder="เช่น ค21101"></label>
      <label>กลุ่ม <input id="section" placeholder="เช่น 1" style="width:4rem"></label>
      <span class="hint">ไม่ใส่ก็ได้ แต่จะไม่ตรวจว่าเลือกวิชา/กลุ่มถูกบน SGS</span></p>
+  <p id="phaseBox" hidden><b>ช่วงที่ SGS เปิดให้กรอกอยู่:</b>
+     <label><input type="radio" name="phase" value="pre"> ก่อนกลางภาค + กลางภาค</label>
+     <label><input type="radio" name="phase" value="post"> หลังกลางภาค + ปลายภาค</label></p>
   <div id="fieldMaps"></div>
   <p id="presets"></p>
   <p><label><input type="checkbox" id="strict"> โหมดเข้มงวด: รหัสในไฟล์ต้องตรงกับที่ SGS แสดงพอดี (ค่าเริ่มต้นคือยืดหยุ่น กรอกเฉพาะรหัสที่พบ)</label></p>

@@ -34,3 +34,7 @@ footer { max-width:60rem; margin:1rem auto 2rem; padding:0 1rem; color:var(--mut
 .scroll { max-width:100%; }
 textarea, select { max-width:100%; }
 @media (max-width: 520px) { .row-map .name { min-width:0; width:100%; } input[type=number] { max-width:100%; } }
+
+.banner { background:#e8f6ed; border:1px solid #b9dfc6; color:#0a5a26; border-radius:8px; padding:.5rem .8rem; margin:.4rem 0; }
+.banner.warn { background:#fff6e5; border-color:#f0d9a8; color:#8a4b00; }
+.row-map[hidden], .banner[hidden] { display:none; }

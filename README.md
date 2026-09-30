@@ -9,7 +9,7 @@
     .venv/bin/python build.py   # → dist/index.html
 
 ## โครงสร้าง
-- `src/` โมดูล JavaScript (อ่านตัวเลข, วางข้อความ, .xlsx, จับคู่, ตรวจ, payload, UI)
+- `src/` โมดูล JavaScript (อ่านตัวเลข, วางข้อความ, .xlsx, จับคู่, ตรวจ, payload, อ่านสมุด ปพ.5 อัตโนมัติ `pp5.js`, UI)
 - `fill/sgs_fill.js` สคริปต์กรอก (แหล่งความจริง — vichakarn ใช้สำเนา)
 - `mock-sgs/` หน้า SGS จำลอง (ทดสอบบนหน้าจริงไม่ได้)
 - `site/` แม่แบบหน้าเว็บ · `build.py` รวมเป็นไฟล์เดียว

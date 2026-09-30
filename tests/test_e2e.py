@@ -196,3 +196,112 @@ def test_merged_header_over_sub_scores_warns_before_the_teacher_copies(site):
     text = "รหัส\tก่อนกลางภาค\t\t\n\tงาน1\tงาน2\tรวม\n07112\t10\t12\t22\n"
     out = drive(site, paste_steps(text))
     assert "หัวตารางชั้นที่สอง" in out["report"], out["report"]
+
+
+# ── ไฟล์ ปพ.5 ของโรงเรียน: ครูเลือกไฟล์แล้วไม่ต้องจับคู่คอลัมน์ ──
+
+def load_pp5_steps(wb, target: str = "score", extra: str = "") -> str:
+    from tests.pp5_fixture import to_b64
+    b64 = to_b64(wb)
+    return f"""
+    if ({json.dumps(target)} !== 'score') {{
+      var rr = document.querySelector('input[name=target][value={target}]'); rr.checked = true; rr.dispatchEvent(new Event('change'));
+    }}
+    var bytes = Uint8Array.from(atob({json.dumps(b64)}), function (c) {{ return c.charCodeAt(0); }});
+    var dt = new DataTransfer(); dt.items.add(new File([bytes], 'ปพ5.xlsx'));
+    var f = document.getElementById('file'); f.files = dt.files; f.dispatchEvent(new Event('change'));
+    await sleep(500);
+    {extra}
+    """
+
+
+@needs_chrome
+def test_pp5_file_is_recognised_and_needs_no_column_mapping(site):
+    from tests.pp5_fixture import build
+    out = drive(site, load_pp5_steps(build()) +
+                "out.banner = document.getElementById('pp5Banner').innerText; out.subject = document.getElementById('subject').value; out.section = document.getElementById('section').value;")
+    assert "ค21101" in out["banner"] and "ม.1/1" in out["banner"]
+    assert out["subject"] == "ค21101" and out["section"] == "1"
+    p = json.loads(out["payload"])
+    assert p["strict"] is False and p["subject"] == "ค21101" and p["section"] == "1"
+    assert [s["code"] for s in p["students"]] == ["10001", "10002", "10003"]
+
+
+@needs_chrome
+def test_pp5_defaults_to_the_pair_that_has_data_and_carries_the_full_marks(site):
+    from tests.pp5_fixture import build
+    early = json.loads(drive(site, load_pp5_steps(build(with_final=False)))["payload"])
+    assert early["fields"] == [{"id": "S1", "max": 25}, {"id": "Midterm", "max": 20}]
+    late = json.loads(drive(site, load_pp5_steps(build()))["payload"])
+    assert late["fields"] == [{"id": "S10", "max": 25}, {"id": "Final", "max": 30}]
+
+
+@needs_chrome
+def test_pp5_teacher_can_switch_the_pair_that_sgs_has_open(site):
+    from tests.pp5_fixture import build
+    steps = load_pp5_steps(build(), extra="var ph = document.querySelector('input[name=phase][value=pre]'); ph.checked = true; ph.dispatchEvent(new Event('change')); await sleep(50);")
+    p = json.loads(drive(site, steps)["payload"])
+    assert [f["id"] for f in p["fields"]] == ["S1", "Midterm"]
+    assert p["students"][0]["values"] == [18, 12]
+
+
+@needs_chrome
+def test_pp5_changing_the_sgs_page_reextracts_from_the_right_sheet(site):
+    from tests.pp5_fixture import build
+    des = json.loads(drive(site, load_pp5_steps(build(), "desirable"))["payload"])
+    assert [f["id"] for f in des["fields"]] == [f"Q{i}" for i in range(1, 9)] and des["blank"] == ["Q9", "Q10"]
+    rd = json.loads(drive(site, load_pp5_steps(build(), "reading"))["payload"])
+    assert [s["values"] for s in rd["students"]][0] == [2, 2, 3, 2, 2]           # ค่าเฉลี่ย 2.33 ปัดเป็น 2 → L4 = L5 = 2
+
+
+@needs_chrome
+def test_pp5_payload_fills_the_mock_end_to_end(site):
+    from tests.pp5_fixture import build
+    out = drive(site, load_pp5_steps(build(), extra="var ph = document.querySelector('input[name=phase][value=pre]'); ph.checked = true; ph.dispatchEvent(new Event('change')); await sleep(50);"))
+    fill = run_on_mock(mock_sgs.render(["10003", "10001", "10002"]), out["payload"])
+    assert fill["result"]["canFill"] is True, [i for i in fill["result"]["items"] if not i["ok"]]
+    assert fill["values"]["10001"][:2] == ["18", "12"] and fill["values"]["10003"][:2] == ["22", "14"]
+
+
+@needs_chrome
+def test_pp5_manual_mode_shows_the_raw_sheets_for_unusual_files(site):
+    from tests.pp5_fixture import build
+    out = drive(site, load_pp5_steps(build(), extra="var mm = document.getElementById('manualMap'); mm.checked = true; mm.dispatchEvent(new Event('change')); await sleep(50); out.sheetShown = !document.getElementById('sheet').hidden; out.rawRows = document.getElementById('preview').rows.length;"))
+    assert out["sheetShown"] is True and out["rawRows"] >= 5
+
+
+@needs_chrome
+def test_an_ordinary_workbook_does_not_trigger_pp5_mode(site):
+    wb = openpyxl.Workbook()
+    wb.active.append(["รหัส", "ก่อนกลาง", "กลาง"])
+    wb.active.append([10001, 20, 15])
+    out = drive(site, load_pp5_steps(wb, extra="out.bannerHidden = document.getElementById('pp5Banner').hidden;"))
+    assert out["bannerHidden"] is True
+    assert [s["code"] for s in json.loads(out["payload"])["students"]] == ["10001"]
+
+
+@needs_chrome
+def test_pp5_missing_sheet_falls_back_with_a_clear_message(site):
+    from tests.pp5_fixture import build
+    wb = build()
+    del wb["คุณลักษณะ-การอ่าน"]
+    out = drive(site, load_pp5_steps(wb, "desirable", extra="out.msg = document.getElementById('loadMessage').innerText;"))
+    assert "คุณลักษณะ" in out["msg"]
+
+
+@needs_chrome
+def test_pp5_mode_hides_the_mapping_rows_it_is_not_using(site):
+    from tests.pp5_fixture import build
+    steps = load_pp5_steps(build(), "desirable", extra="out.q1 = document.getElementById('map_Q1').parentNode.hidden; out.q9 = document.getElementById('map_Q9').parentNode.hidden;")
+    out = drive(site, steps)
+    assert out["q1"] is False and out["q9"] is True
+    manual = load_pp5_steps(build(), "desirable", extra="var mm = document.getElementById('manualMap'); mm.checked = true; mm.dispatchEvent(new Event('change')); await sleep(50); out.q9 = document.getElementById('map_Q9').parentNode.hidden;")
+    assert drive(site, manual)["q9"] is False, "โหมดจับคู่เอง ต้องเห็นทุกแถว"
+
+
+@needs_chrome
+def test_hidden_mapping_rows_are_really_not_displayed(site):
+    """คลาส .row-map ตั้ง display:flex ซึ่งชนะ attribute hidden — ต้องมีกฎ [hidden] คู่กันเสมอ"""
+    from tests.pp5_fixture import build
+    steps = load_pp5_steps(build(), "desirable", extra="out.disp = getComputedStyle(document.getElementById('map_Q9').parentNode).display;")
+    assert drive(site, steps)["disp"] == "none"
