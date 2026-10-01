@@ -12,7 +12,11 @@
 <!--__ICONS__-->
 <header class="top">
   <div class="wrap">
-    <h1><svg class="icon lg"><use href="#i-file-spreadsheet"></use></svg>ช่วยกรอก SGS</h1>
+    <div class="top-row">
+      <h1><span class="logo"><svg class="icon lg"><use href="#i-file-spreadsheet"></use></svg></span>ช่วยกรอก SGS</h1>
+      <button type="button" id="helpBtn" class="help-btn" aria-haspopup="dialog" aria-controls="help">
+        <svg class="icon"><use href="#i-circle-help"></use></svg>วิธีใช้</button>
+    </div>
     <p class="flow">วางหรือเลือกไฟล์ Excel
       <svg class="icon sm"><use href="#i-arrow-right"></use></svg> จับคู่คอลัมน์
       <svg class="icon sm"><use href="#i-arrow-right"></use></svg> คัดลอก
@@ -23,8 +27,106 @@
 </header>
 
 <main class="wrap">
-<section id="howto" class="card">
-  <h2>วิธีใช้</h2>
+<div class="tabs" role="tablist" aria-label="ขั้นตอน">
+    <button type="button" role="tab" id="tab1" class="tab" aria-controls="p1" aria-selected="true" tabindex="0">
+      <span class="badge"><span class="n">1</span><svg class="icon sm ck"><use href="#i-check"></use></svg></span>
+      <span class="ttl"><span class="t">เลือกหน้า SGS</span><span class="sum" id="sum1"></span></span></button>
+    <button type="button" role="tab" id="tab2" class="tab" aria-controls="p2" aria-selected="false" tabindex="-1">
+      <span class="badge"><span class="n">2</span><svg class="icon sm ck"><use href="#i-check"></use></svg></span>
+      <span class="ttl"><span class="t">ใส่ข้อมูล</span><span class="sum" id="sum2"></span></span></button>
+    <button type="button" role="tab" id="tab3" class="tab" aria-controls="p3" aria-selected="false" tabindex="-1">
+      <span class="badge"><span class="n">3</span><svg class="icon sm ck"><use href="#i-check"></use></svg></span>
+      <span class="ttl"><span class="t">จับคู่คอลัมน์</span><span class="sum" id="sum3"></span></span></button>
+</div>
+<section class="panel" role="tabpanel" id="p1" aria-labelledby="tab1">
+    <div class="choices" role="radiogroup" aria-label="หน้า SGS">
+      <label class="choice"><input type="radio" name="target" value="score" checked>
+        <span class="body"><svg class="icon lg"><use href="#i-calculator"></use></svg>
+          <span class="t">คะแนน</span><span class="d">บันทึกผลการเรียน</span></span></label>
+      <label class="choice"><input type="radio" name="target" value="desirable">
+        <span class="body"><svg class="icon lg"><use href="#i-award"></use></svg>
+          <span class="t">คุณลักษณะอันพึงประสงค์</span><span class="d">8 ข้อ ระดับ 1–3</span></span></label>
+      <label class="choice"><input type="radio" name="target" value="reading">
+        <span class="body"><svg class="icon lg"><use href="#i-book-open"></use></svg>
+          <span class="t">การอ่าน คิดวิเคราะห์ และเขียน</span><span class="d">ครั้งที่ 1–5</span></span></label>
+    </div>
+</section>
+<section class="panel" role="tabpanel" id="p2" aria-labelledby="tab2" hidden>
+    <textarea id="paste" rows="4" placeholder="คัดลอกตารางจาก Excel (รวมแถวหัวตาราง) แล้ววางที่นี่"></textarea>
+    <label class="drop" id="drop">
+      <input id="file" class="sr" type="file" accept=".xlsx,.csv,.tsv,.txt">
+      <svg class="icon lg"><use href="#i-upload"></use></svg>
+      <span><b>เลือกไฟล์ Excel (.xlsx) หรือ CSV</b> หรือลากมาวางที่นี่ <span id="fileName" class="hint"></span></span>
+    </label>
+    <div id="sheet" class="seg" role="radiogroup" aria-label="เลือกชีต" hidden></div>
+    <div id="pp5Banner" class="banner" hidden></div>
+    <p id="manualRow" hidden><label class="check"><input type="checkbox" id="manualMap"> จับคู่คอลัมน์เอง (แสดงตารางดิบของไฟล์ ใช้เมื่อไฟล์ ปพ.5 ไม่ตรงแม่แบบ)</label></p>
+    <p>แถวหัวตารางคือแถวที่ <input id="headerRow" type="number" min="1" value="1" class="narrow"></p>
+    <p id="loadMessage" class="msg"></p>
+</section>
+<section class="panel" role="tabpanel" id="p3" aria-labelledby="tab3" hidden>
+    <p class="hint tip">ตารางตัวอย่างด้านล่างแสดงว่าแต่ละคอลัมน์จะถูกกรอกลงช่องไหน — ถ้าไม่ตรง เปลี่ยนจากช่องเลือกในแท็บนี้</p>
+    <div class="grid2">
+      <label>คอลัมน์รหัสนักเรียน <select id="codeCol"></select></label>
+      <label class="inline">เติมศูนย์ให้ครบ <input id="pad" type="number" min="0" max="12" value="5" class="narrow"> หลัก <span class="hint">(0 = ไม่เติม)</span></label>
+      <label>รหัสวิชา <input id="subject" placeholder="เช่น ค21101"></label>
+      <label>กลุ่ม <input id="section" placeholder="เช่น 1" class="narrow"></label>
+    </div>
+    <p class="hint">รหัสวิชากับกลุ่มไม่ใส่ก็ได้ แต่จะไม่ตรวจว่าเลือกวิชา/กลุ่มถูกบน SGS</p>
+    <div id="phaseBox" hidden>
+      <p class="lbl">ช่วงที่ SGS เปิดให้กรอกอยู่</p>
+      <div class="seg" role="radiogroup" aria-label="ช่วงที่ SGS เปิด">
+        <label><input type="radio" name="phase" value="pre"><span>ก่อนกลางภาค + กลางภาค</span></label>
+        <label><input type="radio" name="phase" value="post"><span>หลังกลางภาค + ปลายภาค</span></label>
+      </div>
+    </div>
+    <div id="fieldMaps"></div>
+    <p id="presets"></p>
+    <p class="lbl">การตรวจรหัสนักเรียนเทียบกับ SGS</p>
+    <div class="seg" role="radiogroup" aria-label="โหมดตรวจรหัส">
+      <label><input type="radio" name="mode" value="lenient" checked><span>ยืดหยุ่น <small>กรอกเฉพาะรหัสที่พบ</small></span></label>
+      <label><input type="radio" name="mode" value="strict"><span>เข้มงวด <small>รหัสต้องตรงกันพอดี</small></span></label>
+    </div>
+</section>
+
+<div class="stage">
+  <section class="book" aria-label="ตัวอย่างสิ่งที่จะกรอก">
+    <div class="spine"></div>
+    <div class="book-head">
+      <div>
+        <h2>ตัวอย่างสิ่งที่จะกรอกลง SGS</h2>
+        <div class="meta" id="bookMeta">ยังไม่มีข้อมูล</div>
+      </div>
+      <div class="stamp" id="stamp" hidden></div>
+    </div>
+    <div class="scroll"><table id="preview"></table></div>
+    <div class="legend">
+      <span><i class="k-blank"></i>ว่าง — ไม่กรอก ไม่ใส่ 0 แทน</span>
+      <span><i class="k-marker"></i>ขส / ร / มส — เครื่องหมาย ไม่กลายเป็น 0</span>
+      <span><i class="k-bad"></i>ผิดปกติ — ต้องแก้ก่อนคัดลอก</span>
+    </div>
+  </section>
+
+  <section class="card" id="s5">
+    <h2>รายงานการตรวจ</h2>
+    <div id="report"></div>
+    <details id="manualBox" hidden><summary>คัดลอกเอง</summary>
+      <textarea id="manualcopy" rows="4" readonly></textarea></details>
+  </section>
+</div>
+</main>
+
+<footer class="wrap">
+  <p>ไม่ใช่เครื่องมือของ สพฐ. หรือระบบ SGS — ครูต้องตรวจผลและกดบันทึกเอง ผู้พัฒนาไม่รับผิดชอบต่อข้อมูลที่กรอกผิด</p>
+  <p class="credit">Develop by Kru staeb · v<span>__VERSION__</span></p>
+</footer>
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+<dialog id="help" aria-labelledby="helpTitle">
+  <div class="dlg-head">
+    <h2 id="helpTitle">วิธีใช้</h2>
+    <button type="button" id="helpClose" class="icon-btn" aria-label="ปิด"><svg class="icon"><use href="#i-x"></use></svg></button>
+  </div>
   <ol class="how">
     <li><svg class="icon"><use href="#i-bookmark"></use></svg>
       <div><b>ติดตั้งครั้งเดียว:</b> ลากปุ่มนี้ขึ้นไปวางบนแถบบุ๊กมาร์กของเบราว์เซอร์ (Cmd+Shift+B / Ctrl+Shift+B ถ้าแถบไม่แสดง)<br>
@@ -48,81 +150,28 @@
     <p><b>ไฟล์ ปพ.5 ของโรงเรียน (Excel ที่มีชีต "ก่อนกลางภาค-กลางภาค", "หลังกลางภาค-ปลายภาค", "คุณลักษณะ-การอ่าน")?</b>
        เลือกไฟล์แล้วระบบอ่านให้เอง — รู้รหัสวิชา ห้อง คะแนนเต็ม และคอลัมน์ผลรวม เลือกแค่หน้า SGS ที่จะกรอก
        (และช่วงก่อน+กลาง/หลัง+ปลาย) ถ้าไฟล์ไม่ตรงแม่แบบ ติ๊ก "จับคู่คอลัมน์เอง"</p>
+    <p><b>ปุ่ม "คัดลอกรายงานปัญหา" คืออะไร?</b> คัดลอกข้อความสรุปสั้น ๆ สำหรับส่งให้ผู้ดูแลเมื่อเครื่องมือทำงานผิดปกติ
+       มีแค่เวอร์ชัน หน้า SGS ที่เลือก ช่องที่จับคู่ จำนวนแถว และชนิดข้อผิดพลาด — <b>ไม่มีรหัสนักเรียน ชื่อ หรือคะแนน</b></p>
     <p><b>ไฟล์ .xls เก่า?</b> ไม่รองรับ ให้บันทึกเป็น .xlsx หรือคัดลอกตารางแล้ววางในช่อง</p>
   </details>
-</section>
+</dialog>
 
-<section class="card" id="s1">
-  <h2><span class="num">1</span>เลือกหน้า SGS ที่จะกรอก</h2>
-  <div class="choices" role="radiogroup" aria-label="หน้า SGS">
-    <label class="choice"><input type="radio" name="target" value="score" checked>
-      <span class="body"><svg class="icon lg"><use href="#i-calculator"></use></svg>
-        <span class="t">คะแนน</span><span class="d">บันทึกผลการเรียน</span></span></label>
-    <label class="choice"><input type="radio" name="target" value="desirable">
-      <span class="body"><svg class="icon lg"><use href="#i-award"></use></svg>
-        <span class="t">คุณลักษณะอันพึงประสงค์</span><span class="d">8 ข้อ ระดับ 1–3</span></span></label>
-    <label class="choice"><input type="radio" name="target" value="reading">
-      <span class="body"><svg class="icon lg"><use href="#i-book-open"></use></svg>
-        <span class="t">การอ่าน คิดวิเคราะห์ และเขียน</span><span class="d">ครั้งที่ 1–5</span></span></label>
-  </div>
-</section>
-
-<section class="card" id="s2">
-  <h2><span class="num">2</span>ใส่ข้อมูล</h2>
-  <textarea id="paste" rows="4" placeholder="คัดลอกตารางจาก Excel (รวมแถวหัวตาราง) แล้ววางที่นี่"></textarea>
-  <label class="drop" id="drop">
-    <input id="file" class="sr" type="file" accept=".xlsx,.csv,.tsv,.txt">
-    <svg class="icon lg"><use href="#i-upload"></use></svg>
-    <span><b>เลือกไฟล์ Excel (.xlsx) หรือ CSV</b> หรือลากมาวางที่นี่ <span id="fileName" class="hint"></span></span>
-  </label>
-  <div id="sheet" class="seg" role="radiogroup" aria-label="เลือกชีต" hidden></div>
-  <div id="pp5Banner" class="banner" hidden></div>
-  <p id="manualRow" hidden><label class="check"><input type="checkbox" id="manualMap"> จับคู่คอลัมน์เอง (แสดงตารางดิบของไฟล์ ใช้เมื่อไฟล์ ปพ.5 ไม่ตรงแม่แบบ)</label></p>
-  <p>แถวหัวตารางคือแถวที่ <input id="headerRow" type="number" min="1" value="1" class="narrow"></p>
-  <p id="loadMessage" class="msg"></p>
-  <div class="scroll"><table id="preview"></table></div>
-</section>
-
-<section class="card" id="s3">
-  <h2><span class="num">3</span>จับคู่คอลัมน์</h2>
-  <div class="grid2">
-    <label>คอลัมน์รหัสนักเรียน <select id="codeCol"></select></label>
-    <label class="inline">เติมศูนย์ให้ครบ <input id="pad" type="number" min="0" max="12" value="5" class="narrow"> หลัก <span class="hint">(0 = ไม่เติม)</span></label>
-    <label>รหัสวิชา <input id="subject" placeholder="เช่น ค21101"></label>
-    <label>กลุ่ม <input id="section" placeholder="เช่น 1" class="narrow"></label>
-  </div>
-  <p class="hint">รหัสวิชากับกลุ่มไม่ใส่ก็ได้ แต่จะไม่ตรวจว่าเลือกวิชา/กลุ่มถูกบน SGS</p>
-  <div id="phaseBox" hidden>
-    <p class="lbl">ช่วงที่ SGS เปิดให้กรอกอยู่</p>
-    <div class="seg" role="radiogroup" aria-label="ช่วงที่ SGS เปิด">
-      <label><input type="radio" name="phase" value="pre"><span>ก่อนกลางภาค + กลางภาค</span></label>
-      <label><input type="radio" name="phase" value="post"><span>หลังกลางภาค + ปลายภาค</span></label>
+<div class="dock" id="dock">
+  <div class="wrap">
+    <div class="dockl">
+      <div class="counts" aria-live="polite">
+        <span class="pill ok" id="cntOk"></span>
+        <span class="pill warn" id="cntWarn" hidden></span>
+        <span class="pill bad" id="cntBad" hidden></span>
+      </div>
+      <p id="status" class="msg" role="status"></p>
+    </div>
+    <div class="actions">
+      <button id="copyReport" class="secondary" title="คัดลอกข้อความสรุปปัญหา (ไม่มีข้อมูลนักเรียน — ไม่มีรหัส ชื่อ หรือคะแนน) เพื่อส่งให้ผู้ดูแล"><svg class="icon"><use href="#i-flag"></use></svg>คัดลอกรายงานปัญหา</button>
+      <button id="copy" disabled><svg class="icon"><use href="#i-clipboard-copy"></use></svg>คัดลอกข้อมูลสำหรับ SGS</button>
     </div>
   </div>
-  <div id="fieldMaps"></div>
-  <p id="presets"></p>
-  <p class="lbl">การตรวจรหัสนักเรียนเทียบกับ SGS</p>
-  <div class="seg" role="radiogroup" aria-label="โหมดตรวจรหัส">
-    <label><input type="radio" name="mode" value="lenient" checked><span>ยืดหยุ่น <small>กรอกเฉพาะรหัสที่พบ</small></span></label>
-    <label><input type="radio" name="mode" value="strict"><span>เข้มงวด <small>รหัสต้องตรงกันพอดี</small></span></label>
-  </div>
-</section>
-
-<section class="card" id="s4">
-  <h2><span class="num">4</span>ตรวจและคัดลอก</h2>
-  <div id="report"></div>
-  <p class="actions"><button id="copy" disabled><svg class="icon"><use href="#i-clipboard-copy"></use></svg>คัดลอกข้อมูลสำหรับ SGS</button>
-     <button id="copyReport" class="secondary"><svg class="icon"><use href="#i-flag"></use></svg>คัดลอกรายงานปัญหา (ไม่มีข้อมูลนักเรียน)</button></p>
-  <p id="status" class="msg" role="status"></p>
-  <details id="manualBox" hidden><summary>คัดลอกเอง</summary>
-    <textarea id="manualcopy" rows="4" readonly></textarea></details>
-</section>
-</main>
-
-<footer class="wrap">
-  <p>ไม่ใช่เครื่องมือของ สพฐ. หรือระบบ SGS — ครูต้องตรวจผลและกดบันทึกเอง ผู้พัฒนาไม่รับผิดชอบต่อข้อมูลที่กรอกผิด</p>
-  <p class="credit">Develop by Kru staeb · v<span>__VERSION__</span></p>
-</footer>
+</div>
 <script>/*__JS__*/</script>
 </body>
 </html>

@@ -1,0 +1,133 @@
+"""ขั้นตอนเป็น 3 แท็บแนวนอนเหนือสมุดตัวอย่าง · toast แจ้งผลการคัดลอก"""
+
+import pytest
+
+import build
+from tests.conftest import needs_chrome
+from tests.test_e2e import drive, paste_steps
+from tests.test_book_ui import SHEET
+
+
+@pytest.fixture(scope="module")
+def built(tmp_path_factory):
+    out = tmp_path_factory.mktemp("tabs") / "index.html"
+    build.build(out)
+    return out.read_text(encoding="utf-8")
+
+
+@needs_chrome
+def test_there_are_exactly_three_tabs_laid_out_in_one_row(built):
+    out = drive(built, """
+    var tabs = Array.prototype.slice.call(document.querySelectorAll('[role=tab]'));
+    out.count = tabs.length;
+    out.tops = tabs.map(function (t) { return Math.round(t.getBoundingClientRect().top); });
+    out.lefts = tabs.map(function (t) { return Math.round(t.getBoundingClientRect().left); });
+    out.panels = document.querySelectorAll('[role=tabpanel]').length;
+    out.list = !!document.querySelector('[role=tablist]');
+    """)
+    assert out["count"] == 3 and out["panels"] == 3 and out["list"]
+    # แท็บที่เลือกยกสูงกว่าเพื่อน 2-3px ตามดีไซน์สมุด — ยังต้องอยู่แถวเดียวกัน ไม่ใช่ซ้อนลงมาเป็นหลายบรรทัด
+    assert max(out["tops"]) - min(out["tops"]) < 12, out["tops"]
+    assert out["lefts"] == sorted(out["lefts"])
+
+
+@needs_chrome
+def test_only_the_selected_tabs_panel_is_visible_and_clicking_switches_it(built):
+    out = drive(built, """
+    var state = function () {
+      return Array.prototype.map.call(document.querySelectorAll('[role=tab]'), function (t) {
+        var p = document.getElementById(t.getAttribute('aria-controls'));
+        return [t.getAttribute('aria-selected'), !p.hidden]; });
+    };
+    out.start = state();
+    document.getElementById('tab2').click();
+    out.after = state();
+    """)
+    assert out["start"] == [["true", True], ["false", False], ["false", False]]
+    assert out["after"] == [["false", False], ["true", True], ["false", False]]
+
+
+@needs_chrome
+def test_arrow_keys_move_between_tabs(built):
+    out = drive(built, """
+    var t1 = document.getElementById('tab1');
+    t1.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    out.afterRight = document.getElementById('tab2').getAttribute('aria-selected');
+    document.getElementById('tab2').dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+    out.afterEnd = document.getElementById('tab3').getAttribute('aria-selected');
+    document.getElementById('tab3').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    out.wrapped = document.getElementById('tab1').getAttribute('aria-selected');
+    """)
+    assert (out["afterRight"], out["afterEnd"], out["wrapped"]) == ("true", "true", "true")
+
+
+@needs_chrome
+def test_loading_data_finishes_the_first_tabs_and_lands_on_the_mapping_tab(built):
+    out = drive(built, paste_steps(SHEET) + """
+    out.sel = [1, 2, 3].map(function (n) { return document.getElementById('tab' + n).getAttribute('aria-selected'); });
+    out.done = [1, 2, 3].map(function (n) { return document.getElementById('tab' + n).classList.contains('done'); });
+    out.sum2 = document.getElementById('sum2').textContent;
+    out.sum1 = document.getElementById('sum1').textContent;
+    """)
+    assert out["sel"] == ["false", "false", "true"], out["sel"]
+    assert out["done"][:2] == [True, True]
+    assert "4" in out["sum2"] and "คะแนน" in out["sum1"]
+
+
+@needs_chrome
+def test_the_preview_book_sits_below_the_tab_panel(built):
+    out = drive(built, paste_steps(SHEET) + """
+    var panel = document.querySelector('[role=tabpanel]:not([hidden])').getBoundingClientRect();
+    var book = document.querySelector('.book').getBoundingClientRect();
+    out.panelBottom = panel.bottom; out.bookTop = book.top;
+    out.sameWidth = Math.abs(panel.width - book.width) < 4;
+    """)
+    assert out["bookTop"] >= out["panelBottom"] - 1, out
+    assert out["sameWidth"], "แท็บกับสมุดควรกว้างเท่ากัน อยู่คอลัมน์เดียวกัน"
+
+
+@needs_chrome
+def test_a_successful_copy_shows_a_toast_at_the_bottom(built):
+    out = drive(built, paste_steps(SHEET) + """
+    navigator.clipboard.writeText = function () { return Promise.resolve(); };
+    document.getElementById('copy').click(); await sleep(80);
+    var t = document.getElementById('toast');
+    out.hidden = t.hidden; out.text = t.textContent; out.role = t.getAttribute('role');
+    var r = t.getBoundingClientRect(); out.nearBottom = r.bottom > window.innerHeight * 0.6;
+    out.kind = t.className;
+    """)
+    assert out["hidden"] is False and out["role"] == "status"
+    assert "คัดลอกแล้ว" in out["text"] and "2" in out["text"], out["text"]   # พร้อมกรอก 2 คน
+    assert out["nearBottom"] and "ok" in out["kind"]
+
+
+@needs_chrome
+def test_a_failed_copy_says_so_in_the_toast_instead_of_claiming_success(built):
+    out = drive(built, paste_steps(SHEET) + """
+    navigator.clipboard.writeText = function () { return Promise.reject(new Error('denied')); };
+    document.getElementById('copy').click(); await sleep(80);
+    var t = document.getElementById('toast');
+    out.text = t.textContent; out.kind = t.className; out.manual = !document.getElementById('manualBox').hidden;
+    """)
+    assert "ไม่ได้" in out["text"] and "คัดลอกแล้ว" not in out["text"], out["text"]
+    assert "warn" in out["kind"] and out["manual"] is True
+
+
+@needs_chrome
+def test_the_report_copy_button_also_toasts_and_the_toast_goes_away_by_itself(built):
+    out = drive(built, paste_steps(SHEET) + """
+    navigator.clipboard.writeText = function () { return Promise.resolve(); };
+    document.getElementById('copyReport').click(); await sleep(80);
+    var t = document.getElementById('toast');
+    out.shown = !t.hidden; out.text = t.textContent;
+    await sleep(4200);
+    out.later = t.hidden;
+    """)
+    assert out["shown"] and "รายงาน" in out["text"], out["text"]
+    assert out["later"] is True
+
+
+@needs_chrome
+def test_the_dock_still_holds_both_copy_buttons(built):
+    out = drive(built, "var d = document.getElementById('dock'); out.has = !!d.querySelector('#copy') && !!d.querySelector('#copyReport');")
+    assert out["has"]

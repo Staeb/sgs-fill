@@ -51,15 +51,90 @@ var SF = SF || {};
     select.value = String(selected === undefined ? -1 : selected);
   }
 
-  function renderPreview() {
+  var PREVIEW_ROWS = 40;
+
+  /* สถานะของเซลล์หนึ่งช่อง — ใช้กฎเดียวกับ SF.validate เพื่อให้สีบนหน้าตรงกับที่ตัวตรวจตัดสินจริง
+     ว่างกับเครื่องหมาย (ขส/ร/มส) ไม่ใช่ศูนย์ และไม่ถูกกรอก */
+  function cellState(raw, limit) {
+    if (SF.isBlank(raw)) { return { cls: 'blank', text: 'ว่าง' }; }
+    var text = String(raw).trim();
+    var n = SF.parseNumber(raw);
+    if (n === null) { return { cls: 'marker', text: text }; }
+    if (n < 0) { return { cls: 'bad', text: text, note: 'ติดลบ' }; }
+    if (typeof limit === 'number' && n > limit) { return { cls: 'bad', text: text, note: 'เกินคะแนนเต็ม ' + limit }; }
+    if (Math.abs(n * 100 - Math.round(n * 100)) > 1e-6) { return { cls: 'bad', text: text, note: 'ทศนิยมเกิน 2 ตำแหน่ง' }; }
+    return { cls: 'ok', text: text };
+  }
+
+  function chip(text, skip, arrow) {
+    var c = mk('span', undefined, 'map' + (skip ? ' skip' : ''));
+    if (arrow) { c.appendChild(icon('arrow-right', 'sm')); }
+    c.appendChild(document.createTextNode(text));
+    return c;
+  }
+
+  /* ตารางตัวอย่าง "สิ่งที่จะกรอกลง SGS": หัวคอลัมน์บอกว่ากรอกลงช่องไหน เซลล์บอกสถานะ */
+  function renderPreview(cfg) {
     var t = $('preview');
     clear(t);
-    state.table.slice(0, 9).forEach(function (row, r) {
-      var tr = mk('tr');
-      if (r === headerRow()) { tr.className = 'hdr'; }
-      row.forEach(function (c) { tr.appendChild(mk('td', c)); });
-      t.appendChild(tr);
+    if (!state.table.length) {
+      var e = mk('tbody');
+      var er = mk('tr', undefined, 'empty-row');
+      var ec = mk('td', 'ยังไม่มีข้อมูล — วางจาก Excel หรือเลือกไฟล์ที่ขั้นตอนที่ 2');
+      er.appendChild(ec);
+      e.appendChild(er);
+      t.appendChild(e);
+      return;
+    }
+    var target = SF.TARGETS[state.target];
+    var fieldOfCol = {};
+    target.fields.forEach(function (f) {
+      if (cfg.fieldCols[f.id] !== undefined) { fieldOfCol[cfg.fieldCols[f.id]] = f; }
     });
+    var head = header();
+    var thead = mk('thead');
+    var htr = mk('tr');
+    head.forEach(function (h, c) {
+      var th = mk('th', String(h).trim() || '(ไม่มีหัว)');
+      var f = fieldOfCol[c];
+      if (c === cfg.codeCol) { th.appendChild(chip('รหัสนักเรียน')); }
+      else if (f) {
+        var full = cfg.maxByField[f.id];
+        th.appendChild(chip(f.id + (typeof full === 'number' ? ' · เต็ม ' + full : ''), false, true));
+        if (target.kind === 'score') { th.className = 'n'; }
+      } else { th.appendChild(chip('ไม่ใช้', true)); }
+      htr.appendChild(th);
+    });
+    thead.appendChild(htr);
+    t.appendChild(thead);
+    var body = mk('tbody');
+    var rows = state.table.slice(headerRow() + 1);
+    rows.slice(0, PREVIEW_ROWS).forEach(function (row) {
+      var tr = mk('tr');
+      head.forEach(function (_, c) {
+        var f = fieldOfCol[c];
+        var td;
+        if (f) {
+          var limit = target.kind === 'matrix' ? target.limit : cfg.maxByField[f.id];
+          var st = cellState(row[c], limit);
+          td = mk('td', st.text, (st.cls === 'ok' ? '' : st.cls) + (target.kind === 'score' ? ' n' : ''));
+          if (st.note) { td.appendChild(mk('small', st.note)); }
+        } else {
+          td = mk('td', row[c] === undefined || row[c] === null ? '' : String(row[c]),
+            c === cfg.codeCol ? 'code' : 'dim');
+        }
+        tr.appendChild(td);
+      });
+      body.appendChild(tr);
+    });
+    if (rows.length > PREVIEW_ROWS) {
+      var more = mk('tr', undefined, 'more');
+      var mc = mk('td', 'และอีก ' + (rows.length - PREVIEW_ROWS) + ' แถว (ไม่แสดงในตัวอย่าง แต่ถูกตรวจครบ)');
+      mc.colSpan = Math.max(1, head.length);
+      more.appendChild(mc);
+      body.appendChild(more);
+    }
+    t.appendChild(body);
   }
 
   function renderMapping(reguess) {
@@ -142,21 +217,92 @@ var SF = SF || {};
     return codes.slice(0, 8).join(', ') + (codes.length > 8 ? ' และอีก ' + (codes.length - 8) + ' รหัส' : '');
   }
 
+  function dataRowCount() { return Math.max(0, state.table.length - headerRow() - 1); }
+
+  function setStepState(n, done) { $('tab' + n).classList.toggle('done', !!done); }
+
+  function pill(id, kind, iconName, text) {
+    var el = $(id);
+    clear(el);
+    el.className = 'pill ' + kind;
+    el.hidden = !text;
+    if (text) { el.appendChild(icon(iconName, 'sm')); el.appendChild(document.createTextNode(text)); }
+  }
+
+  /* ตราประทับ · ตัวเลขที่แถบท้ายจอ · สรุปของแต่ละขั้นตอน */
+  function paintSummary(result) {
+    var rows = dataRowCount();
+    var label = SF.TARGETS[state.target].label;
+    $('sum1').textContent = label;
+    var fileInfo = state.pp5
+      ? 'ปพ.5' + (state.pp5.subject ? ' ' + state.pp5.subject : '') + (state.pp5.room ? ' · ' + state.pp5.room : '') + ' · '
+      : '';
+    $('sum2').textContent = rows ? fileInfo + rows + ' แถว' : '';
+    var meta = [$('subject').value.trim(), $('section').value.trim() ? 'กลุ่ม ' + $('section').value.trim() : '', label];
+    if (!$('phaseBox').hidden && checked('phase')) {
+      meta.push(checked('phase') === 'post' ? 'หลังกลางภาค + ปลายภาค' : 'ก่อนกลางภาค + กลางภาค');
+    }
+    $('bookMeta').textContent = rows ? meta.filter(Boolean).join(' · ') : 'ยังไม่มีข้อมูล';
+
+    var stamp = $('stamp');
+    if (!result) {
+      stamp.hidden = true;
+      $('sum3').textContent = '';
+      pill('cntOk', 'idle', 'info', 'ยังไม่มีข้อมูล');
+      pill('cntWarn', 'warn', 'triangle-alert', '');
+      pill('cntBad', 'bad', 'circle-x', '');
+      setStepState(1, true);
+      setStepState(2, false);
+      setStepState(3, false);
+      return;
+    }
+    var ready = result.students.length;
+    var all = ready + result.incomplete.length;
+    var badCodes = [];
+    result.errors.forEach(function (e) { (e.codes || [null]).forEach(function (c) { if (badCodes.indexOf(c) < 0) { badCodes.push(c); } }); });
+    var hasErr = result.errors.length > 0;
+    clear(stamp);
+    stamp.hidden = false;
+    stamp.className = 'stamp' + (hasErr ? ' bad' : result.incomplete.length ? ' warn' : '');
+    stamp.appendChild(document.createTextNode(hasErr ? 'ยังกรอกไม่ได้' : 'พร้อมกรอก ' + ready + ' จาก ' + all + ' คน'));
+    var sub = hasErr ? 'มีข้อผิดพลาด ' + badCodes.length + ' รายการ ต้องแก้ก่อนคัดลอก'
+      : result.incomplete.length ? result.incomplete.length + ' คนจะถูกข้าม (ว่างหรือเครื่องหมาย)' : 'ไม่พบปัญหา';
+    stamp.appendChild(mk('small', sub));
+
+    pill('cntOk', hasErr ? 'idle' : 'ok', hasErr ? 'info' : 'circle-check', 'พร้อม ' + ready + ' คน');
+    pill('cntWarn', 'warn', 'triangle-alert',
+      result.incomplete.length ? 'ว่าง/เครื่องหมาย ' + result.incomplete.length + ' คน (ข้าม)' : '');
+    pill('cntBad', 'bad', 'circle-x', hasErr ? 'ผิด ' + badCodes.length + ' รายการ' : '');
+
+    $('sum3').textContent = hasErr ? 'ยังมีข้อผิดพลาด' : 'จับคู่แล้ว ' + result.fieldIds.length + ' ช่อง';
+    var s2done = rows > 0 && !$('loadMessage').textContent;
+    setStepState(1, true);
+    setStepState(2, s2done);
+    setStepState(3, !hasErr);
+  }
+
   function recompute() {
     var box = $('report');
     clear(box);
     state.payloadText = '';
+    state.result = null;
     $('copy').disabled = true;
-    if (!state.table.length) { box.appendChild(line('warn', 'ยังไม่มีข้อมูล — วางจาก Excel หรือเลือกไฟล์')); return; }
+    if (!state.table.length) {
+      box.appendChild(line('warn', 'ยังไม่มีข้อมูล — วางจาก Excel หรือเลือกไฟล์'));
+      renderPreview({ codeCol: -1, fieldCols: {}, maxByField: {} });
+      paintSummary(null);
+      return;
+    }
     var cfg = config();
+    renderPreview(cfg);
     /* แสดงหน้าตาของคอลัมน์ที่จับคู่ไว้ข้างช่องเลือก — ครูเห็นทันทีถ้าเลือกคอลัมน์ผิด (เช่นคะแนนย่อย) */
     SF.TARGETS[state.target].fields.forEach(function (f) {
-      var box = $('stats_' + f.id);
-      if (!box) { return; }
+      var sbox = $('stats_' + f.id);
+      if (!sbox) { return; }
       var col = cfg.fieldCols[f.id];
-      if (col === undefined) { box.textContent = ''; return; }
+      if (col === undefined) { sbox.textContent = ''; return; }
       var s = SF.columnStats(state.table.slice(headerRow() + 1), col);
-      box.textContent = 'ตัวอย่าง ' + (s.sample.join(', ') || '(ว่าง)') +
+      sbox.textContent = 'ตัวอย่าง ' + (s.sample.join(', ') || '(ว่าง)') +
         (s.numbers ? ' · ต่ำสุด–สูงสุด ' + s.min + '–' + s.max : '');
     });
     var result = SF.validate(state.table.slice(headerRow() + 1), cfg);
@@ -184,6 +330,44 @@ var SF = SF || {};
         box.appendChild(line('bad', e.message));
       }
     }
+    paintSummary(result);
+  }
+
+  /* ขั้นตอนเป็น 3 แท็บ — เลือกได้ด้วยเมาส์และลูกศร ซ้าย/ขวา (Home/End ข้ามไปหัว/ท้าย) */
+  var TAB_COUNT = 3;
+  function selectTab(n, focus) {
+    for (var i = 1; i <= TAB_COUNT; i++) {
+      var tab = $('tab' + i);
+      var on = i === n;
+      tab.setAttribute('aria-selected', on ? 'true' : 'false');
+      tab.tabIndex = on ? 0 : -1;
+      $('p' + i).hidden = !on;
+      if (on && focus) { tab.focus(); }
+    }
+  }
+  function currentTab() {
+    for (var i = 1; i <= TAB_COUNT; i++) { if ($('tab' + i).getAttribute('aria-selected') === 'true') { return i; } }
+    return 1;
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('[role=tab]'), function (btn, idx) {
+    btn.addEventListener('click', function () { selectTab(idx + 1, false); });
+    btn.addEventListener('keydown', function (ev) {
+      var n = idx + 1;
+      if (ev.key === 'ArrowRight') { n = n % TAB_COUNT + 1; }
+      else if (ev.key === 'ArrowLeft') { n = (n + TAB_COUNT - 2) % TAB_COUNT + 1; }
+      else if (ev.key === 'Home') { n = 1; }
+      else if (ev.key === 'End') { n = TAB_COUNT; }
+      else { return; }
+      ev.preventDefault();
+      selectTab(n, true);
+    });
+  });
+
+  /* โหลดข้อมูลสำเร็จแล้วพาไปแท็บจับคู่ ยกเว้นยังต้องใช้ตัวควบคุมในแท็บใส่ข้อมูล (เลือกชีต / จับคู่เอง) */
+  function goToWorkTab() {
+    if (!dataRowCount() || $('loadMessage').textContent) { return; }
+    var needsStep2 = (state.sheets && state.sheets.length > 1 && !state.pp5) || state.manual;
+    selectTab(needsStep2 ? 2 : 3, false);
   }
 
   var PHASE_FIELDS = { pre: ['S1', 'Midterm'], post: ['S10', 'Final'] };
@@ -225,7 +409,6 @@ var SF = SF || {};
     $('headerRow').value = 1;
     if (!$('subject').value && state.pp5.subject) { $('subject').value = state.pp5.subject; }
     if (!$('section').value && state.pp5.section) { $('section').value = state.pp5.section; }
-    renderPreview();
     renderMapping(false);
     var isScore = state.target === 'score';
     $('phaseBox').hidden = !isScore;
@@ -242,6 +425,7 @@ var SF = SF || {};
       if (sel) { sel.parentNode.hidden = sel.value === '-1'; }
     });
     recompute();
+    goToWorkTab();
   }
 
   function showRaw(i) {
@@ -254,9 +438,9 @@ var SF = SF || {};
   function loadTable(rows) {
     state.table = rows;
     $('headerRow').value = 1;
-    renderPreview();
     renderMapping(true);
     recompute();
+    goToWorkTab();
   }
 
   function fillSheetSelect() {
@@ -355,7 +539,7 @@ var SF = SF || {};
     });
   });
 
-  $('headerRow').addEventListener('input', function () { renderPreview(); renderMapping(true); recompute(); });
+  $('headerRow').addEventListener('input', function () { renderMapping(true); recompute(); });
   ['codeCol', 'pad', 'subject', 'section'].forEach(function (id) {
     $(id).addEventListener('input', recompute);
     $(id).addEventListener('change', recompute);
@@ -375,16 +559,36 @@ var SF = SF || {};
   });
   $('bookmarklet').addEventListener('click', function (ev) { ev.preventDefault(); });
 
+  /* วิธีใช้: ปุ่มมุมขวาบนเปิด dialog · ปิดด้วยปุ่มปิด / Esc / คลิกพื้นหลัง */
+  $('helpBtn').addEventListener('click', function () { $('help').showModal(); });
+  $('helpClose').addEventListener('click', function () { $('help').close(); });
+  $('help').addEventListener('click', function (ev) { if (ev.target === $('help')) { $('help').close(); } });
+
+  var toastTimer = null;
+  function toast(kind, text) {
+    var t = $('toast');
+    clear(t);
+    t.className = 'toast ' + kind;
+    t.appendChild(icon(kind === 'ok' ? 'circle-check' : 'triangle-alert'));
+    t.appendChild(mk('span', text));
+    t.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.hidden = true; }, 3500);
+  }
+
   async function copyText(text, okMessage) {
     try {
       await navigator.clipboard.writeText(text);
       say('status', okMessage);
+      toast('ok', okMessage);
     } catch (e) {
       $('manualBox').hidden = false;
       $('manualBox').open = true;
       $('manualcopy').value = text;
       $('manualcopy').select();
-      say('status', 'คัดลอกอัตโนมัติไม่ได้ — กดคัดลอกจากช่องด้านล่างเอง (Ctrl/Cmd+C)');
+      var fail = 'คัดลอกอัตโนมัติไม่ได้ — กดคัดลอกจากช่อง "คัดลอกเอง" ด้านล่างเอง (Ctrl/Cmd+C)';
+      say('status', fail);
+      toast('warn', fail);
     }
   }
 

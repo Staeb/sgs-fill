@@ -18,7 +18,7 @@ from pathlib import Path
 ICONS = [
     "lock", "file-spreadsheet", "clipboard-copy", "clipboard-paste", "circle-check", "circle-x",
     "triangle-alert", "info", "bookmark", "book-open", "calculator", "award", "upload",
-    "list-checks", "chevron-down", "arrow-right", "table-2", "flag", "wand-sparkles",
+    "list-checks", "chevron-down", "arrow-right", "table-2", "flag", "wand-sparkles", "check", "circle-help", "x",
 ]
 OUT = Path(__file__).resolve().parent.parent / "site" / "icons.svg"
 
