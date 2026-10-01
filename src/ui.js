@@ -233,11 +233,11 @@ var SF = SF || {};
   function paintSummary(result) {
     var rows = dataRowCount();
     var label = SF.TARGETS[state.target].label;
-    $('sum1').textContent = label;
+    $('sum2').textContent = rows ? label : '';
     var fileInfo = state.pp5
       ? 'ปพ.5' + (state.pp5.subject ? ' ' + state.pp5.subject : '') + (state.pp5.room ? ' · ' + state.pp5.room : '') + ' · '
       : '';
-    $('sum2').textContent = rows ? fileInfo + rows + ' แถว' : '';
+    $('sum1').textContent = rows ? fileInfo + rows + ' แถว' : '';
     var meta = [$('subject').value.trim(), $('section').value.trim() ? 'กลุ่ม ' + $('section').value.trim() : '', label];
     if (!$('phaseBox').hidden && checked('phase')) {
       meta.push(checked('phase') === 'post' ? 'หลังกลางภาค + ปลายภาค' : 'ก่อนกลางภาค + กลางภาค');
@@ -251,7 +251,7 @@ var SF = SF || {};
       pill('cntOk', 'idle', 'info', 'ยังไม่มีข้อมูล');
       pill('cntWarn', 'warn', 'triangle-alert', '');
       pill('cntBad', 'bad', 'circle-x', '');
-      setStepState(1, true);
+      setStepState(1, false);
       setStepState(2, false);
       setStepState(3, false);
       return;
@@ -275,9 +275,9 @@ var SF = SF || {};
     pill('cntBad', 'bad', 'circle-x', hasErr ? 'ผิด ' + badCodes.length + ' รายการ' : '');
 
     $('sum3').textContent = hasErr ? 'ยังมีข้อผิดพลาด' : 'จับคู่แล้ว ' + result.fieldIds.length + ' ช่อง';
-    var s2done = rows > 0 && !$('loadMessage').textContent;
-    setStepState(1, true);
-    setStepState(2, s2done);
+    var loaded = rows > 0 && !$('loadMessage').textContent;
+    setStepState(1, loaded);
+    setStepState(2, loaded);
     setStepState(3, !hasErr);
   }
 
@@ -363,11 +363,11 @@ var SF = SF || {};
     });
   });
 
-  /* โหลดข้อมูลสำเร็จแล้วพาไปแท็บจับคู่ ยกเว้นยังต้องใช้ตัวควบคุมในแท็บใส่ข้อมูล (เลือกชีต / จับคู่เอง) */
+  /* โหลดข้อมูลสำเร็จแล้วพาไปแท็บเลือกหน้า SGS ยกเว้นยังต้องใช้ตัวควบคุมในแท็บใส่ข้อมูล (เลือกชีต / จับคู่เอง) */
   function goToWorkTab() {
     if (!dataRowCount() || $('loadMessage').textContent) { return; }
-    var needsStep2 = (state.sheets && state.sheets.length > 1 && !state.pp5) || state.manual;
-    selectTab(needsStep2 ? 2 : 3, false);
+    var needsData = (state.sheets && state.sheets.length > 1 && !state.pp5) || state.manual;
+    selectTab(needsData ? 1 : 2, false);
   }
 
   var PHASE_FIELDS = { pre: ['S1', 'Midterm'], post: ['S10', 'Final'] };
@@ -425,7 +425,6 @@ var SF = SF || {};
       if (sel) { sel.parentNode.hidden = sel.value === '-1'; }
     });
     recompute();
-    goToWorkTab();
   }
 
   function showRaw(i) {
@@ -495,6 +494,7 @@ var SF = SF || {};
         if (state.pp5) {
           $('sheet').hidden = true;
           applyPp5();
+          goToWorkTab();
         } else {
           fillSheetSelect();
           loadTable(state.sheets[0].rows);
@@ -548,6 +548,7 @@ var SF = SF || {};
     r.addEventListener('change', recompute);
   });
   Array.prototype.forEach.call(document.getElementsByName('target'), function (r) {
+    r.addEventListener('click', function () { if (dataRowCount()) { selectTab(3, false); } });
     r.addEventListener('change', function () {
       if (!r.checked) { return; }
       state.target = r.value;
