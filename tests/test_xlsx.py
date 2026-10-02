@@ -87,3 +87,40 @@ def test_float_noise_from_formulas_is_cleaned_but_real_decimals_are_kept():
 
     rows = read(workbook_b64(build))["sheets"][0]["rows"]
     assert rows[1] == ["0.3", "5.4", "13.125", "20"]
+
+
+def workbook_with_string_formula_b64() -> str:
+    """openpyxl เขียนค่าที่คำนวณแล้วของสูตรไม่ได้ จึงแก้ XML เอง: เซลล์สูตรที่ผลเป็นข้อความ (t="str")
+    เหมือนที่ Excel เก็บเมื่อสูตรดึงรหัสนักเรียนจากอีกชีต เช่น =ชื่อผู้เรียน!B29 ได้ "05923" """
+    import re
+    import zipfile
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "คะแนน"
+    ws.append(["รหัส", "คะแนน"])
+    ws.append(["=Z1", 18])
+    ws.append(["=Z2", 20])
+    ws["Z1"], ws["Z2"] = "x", "x"
+    buf = io.BytesIO()
+    wb.save(buf)
+    src = zipfile.ZipFile(io.BytesIO(buf.getvalue()))
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zo:
+        for item in src.infolist():
+            data = src.read(item.filename)
+            if item.filename == "xl/worksheets/sheet1.xml":
+                x = data.decode("utf-8")
+                x = re.sub(r'<c r="A2"[^>]*>.*?</c>', '<c r="A2" t="str"><f>Z1</f><v>05923</v></c>', x)
+                x = re.sub(r'<c r="A3"[^>]*>.*?</c>', '<c r="A3" t="str"><f>Z2</f><v>06186</v></c>', x)
+                data = x.encode("utf-8")
+            zo.writestr(item, data)
+    return base64.b64encode(out.getvalue()).decode()
+
+
+@needs_chrome
+def test_a_formula_that_returns_a_code_as_text_keeps_its_leading_zero():
+    """ปพ.5 ของโรงเรียนดึงรหัสจากชีตรายชื่อด้วยสูตร ผลเป็นข้อความ "05923" — ต้องไม่กลายเป็น 5923
+    ไม่งั้นรหัสเดียวกันที่ชีตอื่นเขียนเป็น "05923" จะถูกนับเป็นคนละรหัส"""
+    rows = read(workbook_with_string_formula_b64())["sheets"][0]["rows"]
+    assert [r[0] for r in rows[1:3]] == ["05923", "06186"]

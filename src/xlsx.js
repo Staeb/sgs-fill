@@ -85,6 +85,8 @@ var SF = SF || {};
         else if (type === 's') { value = shared[parseInt(v.textContent, 10)] || ''; }
         else if (type === 'b') { value = v.textContent === '1' ? 'TRUE' : 'FALSE'; }
         else if (type === 'e') { value = ''; }
+        /* ผลของสูตรที่เป็นข้อความ (เช่น =ชื่อผู้เรียน!B29 ได้ "05923") ต้องคงเป็นข้อความ ไม่แปลงเป็นเลขจนเลขศูนย์นำหน้าหาย */
+        else if (type === 'str') { value = v.textContent; }
         else {
           /* ตัวเลขที่เก็บในไฟล์คือค่าดิบของ Excel ซึ่งอาจมีเศษลอยตัวจากสูตร (5.3999999999999995)
              ตัดเหลือ 12 หลักนัยสำคัญ — ค่าจริงที่มีทศนิยมยาวยังคงอยู่ให้ validate เตือน */
